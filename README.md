@@ -7,7 +7,7 @@ IP-Symcon Modul zur Steuerung von **Shure SLXD Wireless Receiver** über TCP/IP 
 Dieses Modul ermöglicht die vollständige Steuerung und Überwachung von Shure SLXD Wireless Receivern über das Netzwerk. Es unterstützt alle gängigen SLXD-Modelle (SLXD4, SLXD4D, SLXD24D, SLXD44) und bietet eine nahtlose Integration in IP-Symcon.
 
 **Hauptmerkmale:**
-- Automatische Geräteerkennung per IP-Scan (Configurator)
+- Automatische Geräteerkennung per IP-Scan (Configurator) mit Auto-Subnetz
 - Eine Instanz pro Channel (flexibel und übersichtlich)
 - Audio Mute, Gain, Frequency, Channel Name
 - Battery-Status, RF-Level, TX-Model
@@ -45,7 +45,7 @@ Symcon-SHURE/
 - Erstellt automatisch SLXDChannel-Instanzen (eine pro Channel)
 
 **Properties:**
-- `ScanSubnet`: Subnetz in CIDR-Notation (Standard: 192.168.1.0/24)
+- `ScanSubnet`: Subnetz in CIDR-Notation (Default: automatisch aus der lokalen Netzwerkkonfiguration, Fallback 192.168.1.0/24)
 - `Port`: TCP Port (Standard: 2202)
 - `ManualIP`: IP-Adresse für manuelles Hinzufügen
 - `ManualPort`: Port für manuelles Hinzufügen (Standard: 2202)
@@ -198,7 +198,7 @@ Symcon-SHURE/
 
 2. **Automatischer Scan:**
    - ExpansionPanel "Automatische Erkennung (Scan)" öffnen
-   - `ScanSubnet`: z.B. 192.168.1.0/24 (scannt .1 bis .254)
+   - `ScanSubnet`: automatisch aus der lokalen Netzwerkkonfiguration vorbelegt (bei Bedarf manuell anpassen)
    - Port: 2202 (Standard)
    - Button "Scan starten" klicken
    - Hinweis: Bei /24 werden ca. 254 IPs gescannt (dauert ~1-2 Minuten)
@@ -279,12 +279,13 @@ Symcon-SHURE/
 
 **Ursachen:**
 - ScanSubnet falsch (Subnetz stimmt nicht mit Receiver-IPs überein)
+- Auto-Subnetz passt nicht (z.B. mehrere NICs/VLANs)
 - Port 2202 blockiert
 - Controller Access nicht aktiviert
 - Receiver im falschen Subnetz
 
 **Lösung:**
-1. ScanSubnet prüfen (z.B. 192.168.1.0/24 für IPs 192.168.1.x)
+1. ScanSubnet prüfen (auto vorbelegt, ggf. manuell auf das Receiver-Subnetz ändern)
 2. Größeres Subnetz scannen (z.B. 192.168.0.0/16 für alle .0.0 bis .255.255)
 3. Manuelles Hinzufügen nutzen (wenn IP bekannt ist)
 4. Einzeltest: Manuelle Instanz anlegen (siehe oben)
