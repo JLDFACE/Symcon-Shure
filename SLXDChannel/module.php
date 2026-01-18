@@ -104,6 +104,11 @@ class SLXDChannel extends IPSModule
     {
         $ch = (int)$this->ReadPropertyInteger('Channel');
 
+        if (!$this->IsParentConnected()) {
+            $this->SetCommError('Socket nicht verbunden');
+            return;
+        }
+
         $this->SendCommand("< GET " . $ch . " AUDIO_MUTE >", 'Mute');
         $this->SendCommand("< GET " . $ch . " AUDIO_GAIN >", 'Gain');
         $this->SendCommand("< GET " . $ch . " FREQUENCY >", 'Frequency');
@@ -130,7 +135,9 @@ class SLXDChannel extends IPSModule
     {
         $ch = (int)$this->ReadPropertyInteger('Channel');
         $val = $mute ? 'ON' : 'OFF';
-        $this->SendCommand("< SET " . $ch . " AUDIO_MUTE " . $val . " >", 'Mute');
+        if (!$this->SendCommand("< SET " . $ch . " AUDIO_MUTE " . $val . " >", 'Mute')) {
+            return;
+        }
 
         $this->AddPending('Mute', $mute ? 1 : 0);
         $this->UpdatePollingInterval(true);
@@ -140,7 +147,9 @@ class SLXDChannel extends IPSModule
     {
         $ch = (int)$this->ReadPropertyInteger('Channel');
         $g = max(-25, min(10, (int)$gain));
-        $this->SendCommand("< SET " . $ch . " AUDIO_GAIN " . $g . " >", 'Gain');
+        if (!$this->SendCommand("< SET " . $ch . " AUDIO_GAIN " . $g . " >", 'Gain')) {
+            return;
+        }
 
         $this->AddPending('Gain', $g);
         $this->UpdatePollingInterval(true);
@@ -228,13 +237,19 @@ class SLXDChannel extends IPSModule
 
     private function SendCommand($cmd, $context)
     {
+        if (!$this->IsParentConnected()) {
+            $this->SetCommError('Socket nicht verbunden');
+            return false;
+        }
+
         try {
             $json = json_encode(array('DataID' => '{79827379-F36E-4ADA-8A95-5F8D1DC92FA9}', 'Buffer' => $cmd . "\r\n"));
             $this->SendDataToParent($json);
             $this->SendDebug('SLXD TX', $cmd . ' (' . $context . ')', 0);
+            return true;
         } catch (Exception $e) {
-            $this->SendDebug('SLXD ERR', 'SendCommand failed: ' . $e->getMessage(), 0);
-            SetValueString($this->GetIDForIdent('LastError'), $e->getMessage());
+            $this->SetCommError('SendCommand failed: ' . $e->getMessage());
+            return false;
         }
     }
 
@@ -294,6 +309,35 @@ class SLXDChannel extends IPSModule
             $this->CallSilenced(function () use ($parentID) {
                 IPS_ApplyChanges($parentID);
             });
+        }
+    }
+
+    private function IsParentConnected()
+    {
+        $parentID = $this->GetParentID();
+        if ($parentID <= 0 || !IPS_InstanceExists($parentID)) {
+            return false;
+        }
+
+        $st = IPS_GetInstance($parentID);
+        if (!is_array($st) || !isset($st['InstanceStatus'])) {
+            return false;
+        }
+        return ((int)$st['InstanceStatus'] == 102);
+    }
+
+    private function SetCommError($message)
+    {
+        $this->SendDebug('SLXD ERR', $message, 0);
+
+        $onlineId = @$this->GetIDForIdent('Online');
+        if ($onlineId > 0) {
+            SetValueBoolean($onlineId, false);
+        }
+
+        $errId = @$this->GetIDForIdent('LastError');
+        if ($errId > 0) {
+            SetValueString($errId, $message);
         }
     }
 
