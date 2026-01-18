@@ -1,0 +1,13 @@
+{
+  "id": "{D5E8F9A1-2B3C-4D5E-6F7A-8B9C0D1E2F3A}",
+  "name": "SLXD Configurator",
+  "type": 4,
+  "vendor": "Shure",
+  "aliases": [
+    "SLXD Device Search"
+  ],
+  "parentRequirements": [],
+  "childRequirements": [],
+  "implemented": [],
+  "prefix": "SLXD"
+}

@@ -1,0 +1,67 @@
+{
+  "elements": [
+    {
+      "type": "ValidationTextBox",
+      "name": "Host",
+      "caption": "SLXD Receiver IP"
+    },
+    {
+      "type": "NumberSpinner",
+      "name": "Port",
+      "caption": "TCP Port",
+      "minimum": 1,
+      "maximum": 65535
+    },
+    {
+      "type": "Select",
+      "name": "Channel",
+      "caption": "Channel",
+      "options": [
+        { "label": "Channel 1", "value": 1 },
+        { "label": "Channel 2", "value": 2 },
+        { "label": "Channel 3", "value": 3 },
+        { "label": "Channel 4", "value": 4 }
+      ]
+    },
+    {
+      "type": "NumberSpinner",
+      "name": "PollSlow",
+      "caption": "Poll Slow (s)",
+      "minimum": 5,
+      "maximum": 300
+    },
+    {
+      "type": "NumberSpinner",
+      "name": "PollFast",
+      "caption": "Poll Fast (s)",
+      "minimum": 1,
+      "maximum": 60
+    },
+    {
+      "type": "NumberSpinner",
+      "name": "FastAfterChangeSeconds",
+      "caption": "Fast Polling Duration (s)",
+      "minimum": 10,
+      "maximum": 300
+    },
+    {
+      "type": "NumberSpinner",
+      "name": "TimeoutMs",
+      "caption": "Command Timeout (ms)",
+      "minimum": 500,
+      "maximum": 5000
+    }
+  ],
+  "actions": [
+    {
+      "type": "Button",
+      "caption": "Device ID lesen",
+      "onClick": "SLXD_ReadDeviceID($id);"
+    },
+    {
+      "type": "Button",
+      "caption": "Status aktualisieren",
+      "onClick": "SLXD_PollNow($id);"
+    }
+  ]
+}

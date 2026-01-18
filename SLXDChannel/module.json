@@ -1,0 +1,17 @@
+{
+  "id": "{3F4A5B6C-7D8E-9F0A-1B2C-3D4E5F6A7B8C}",
+  "name": "SLXD Channel",
+  "type": 3,
+  "vendor": "Shure",
+  "aliases": [
+    "SLXD Wireless Channel"
+  ],
+  "parentRequirements": [
+    "{3CFF0FD9-E306-41DB-9B5A-9D06D38576C3}"
+  ],
+  "childRequirements": [],
+  "implemented": [
+    "{018EF6B5-AB94-40C6-AA53-46943E824ACF}"
+  ],
+  "prefix": "SLXD"
+}
