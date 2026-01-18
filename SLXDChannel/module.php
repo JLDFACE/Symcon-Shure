@@ -314,7 +314,7 @@ class SLXDChannel extends IPSModule
 
     private function IsParentConnected()
     {
-        $parentID = $this->GetParentID();
+        $parentID = $this->GetParentInstanceID();
         if ($parentID <= 0 || !IPS_InstanceExists($parentID)) {
             return false;
         }
@@ -324,6 +324,15 @@ class SLXDChannel extends IPSModule
             return false;
         }
         return ((int)$st['InstanceStatus'] == 102);
+    }
+
+    private function GetParentInstanceID()
+    {
+        $inst = IPS_GetInstance($this->InstanceID);
+        if (!is_array($inst) || !isset($inst['ConnectionID'])) {
+            return 0;
+        }
+        return (int)$inst['ConnectionID'];
     }
 
     private function SetCommError($message)
