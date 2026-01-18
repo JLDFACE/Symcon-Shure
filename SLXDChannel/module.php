@@ -45,7 +45,14 @@ class SLXDChannel extends IPSModule
         $this->RegisterVariableInteger('Gain', 'Audio Gain', 'SLXD.Gain', 11);
         $this->EnableAction('Gain');
 
-        $this->RegisterVariableInteger('Frequency', 'Frequency', 'SLXD.Frequency', 20);
+        $freqId = @$this->GetIDForIdent('Frequency');
+        if ($freqId > 0) {
+            $freqVar = IPS_GetVariable($freqId);
+            if (is_array($freqVar) && isset($freqVar['VariableType']) && (int)$freqVar['VariableType'] != 2) {
+                IPS_DeleteVariable($freqId);
+            }
+        }
+        $this->RegisterVariableFloat('Frequency', 'Frequency', 'SLXD.Frequency', 20);
 
         $this->RegisterVariableString('ChannelName', 'Channel Name', '', 21);
 
@@ -196,8 +203,10 @@ class SLXDChannel extends IPSModule
                 $this->UpdateVariable('Gain', $val);
                 break;
             case 'FREQUENCY':
-                $val = (int)$value;
-                $this->UpdateVariable('Frequency', $val);
+                $val = $this->ParseFrequency($value);
+                if ($val !== null) {
+                    $this->UpdateVariableFloat('Frequency', $val);
+                }
                 break;
             case 'CHAN_NAME':
                 $val = $this->TrimBraces($value);
@@ -252,6 +261,17 @@ class SLXDChannel extends IPSModule
         }
     }
 
+    private function UpdateVariableFloat($ident, $floatValue)
+    {
+        $id = @$this->GetIDForIdent($ident);
+        if ($id > 0) {
+            $current = GetValueFloat($id);
+            if (abs($current - $floatValue) > 0.0001) {
+                SetValueFloat($id, $floatValue);
+            }
+        }
+    }
+
     private function TrimBraces($value)
     {
         $value = trim((string)$value);
@@ -259,6 +279,16 @@ class SLXDChannel extends IPSModule
             return trim(substr($value, 1, -1));
         }
         return $value;
+    }
+
+    private function ParseFrequency($value)
+    {
+        $value = trim((string)$value);
+        if ($value === '') return null;
+        if (strpos($value, '.') !== false) {
+            return (float)$value;
+        }
+        return ((int)$value) / 1000.0;
     }
 
     private function GainRawToDb($raw)
@@ -536,10 +566,16 @@ class SLXDChannel extends IPSModule
         IPS_SetVariableProfileValues('SLXD.Gain', -18, 42, 1);
         IPS_SetVariableProfileText('SLXD.Gain', '', ' dB');
 
-        if (!IPS_VariableProfileExists('SLXD.Frequency')) {
-            IPS_CreateVariableProfile('SLXD.Frequency', 1);
-            IPS_SetVariableProfileText('SLXD.Frequency', '', ' MHz');
+        if (IPS_VariableProfileExists('SLXD.Frequency')) {
+            $profile = IPS_GetVariableProfile('SLXD.Frequency');
+            if (is_array($profile) && isset($profile['ProfileType']) && (int)$profile['ProfileType'] != 2) {
+                IPS_DeleteVariableProfile('SLXD.Frequency');
+            }
         }
+        if (!IPS_VariableProfileExists('SLXD.Frequency')) {
+            IPS_CreateVariableProfile('SLXD.Frequency', 2);
+        }
+        IPS_SetVariableProfileText('SLXD.Frequency', '', ' MHz');
 
         if (!IPS_VariableProfileExists('SLXD.Battery')) {
             IPS_CreateVariableProfile('SLXD.Battery', 1);
