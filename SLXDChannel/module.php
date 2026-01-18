@@ -23,6 +23,8 @@ class SLXDChannel extends IPSModule
         $this->SetBuffer('RxBuf', '');
         $this->SetBuffer('PendingMap', '{}');
         $this->SetBuffer('PendingTSMap', '{}');
+        $this->SetBuffer('DeviceID', '');
+        $this->SetBuffer('Model', '');
     }
 
     public function ApplyChanges()
@@ -86,11 +88,20 @@ class SLXDChannel extends IPSModule
         $lines = array();
 
         while (true) {
-            $pos = strpos($buf, "\n");
-            if ($pos === false) break;
-            $line = substr($buf, 0, $pos);
-            $buf = substr($buf, $pos + 1);
-            $lines[] = trim($line);
+            $start = strpos($buf, '<');
+            if ($start === false) break;
+            if ($start > 0) {
+                $buf = substr($buf, $start);
+            }
+
+            $end = strpos($buf, '>');
+            if ($end === false) break;
+
+            $frame = trim(substr($buf, 0, $end + 1));
+            $buf = substr($buf, $end + 1);
+            if ($frame !== '') {
+                $lines[] = $frame;
+            }
         }
 
         $this->SetBuffer('RxBuf', $buf);
@@ -125,14 +136,17 @@ class SLXDChannel extends IPSModule
         $this->CleanupOldPending();
     }
 
-    public function ReadDeviceID()
+    public function ReadDeviceID(): string
     {
-        $resp = $this->SendCommandSync("< GET DEVICE_ID >");
+        $resp = $this->TrimBraces($this->SendCommandSync("< GET DEVICE_ID >"));
+        if ($resp !== '') {
+            $this->SetBuffer('DeviceID', $resp);
+        }
         IPS_LogMessage('SLXD', 'Device ID: ' . $resp);
         return $resp;
     }
 
-    public function SetMute($mute)
+    public function SetMute(bool $mute)
     {
         $ch = (int)$this->ReadPropertyInteger('Channel');
         $val = $mute ? 'ON' : 'OFF';
@@ -144,7 +158,7 @@ class SLXDChannel extends IPSModule
         $this->UpdatePollingInterval(true);
     }
 
-    public function SetGain($gain)
+    public function SetGain(int $gain)
     {
         $ch = (int)$this->ReadPropertyInteger('Channel');
         $g = max(-25, min(10, (int)$gain));
@@ -187,6 +201,7 @@ class SLXDChannel extends IPSModule
             case 'CHAN_NAME':
                 $val = $this->TrimBraces($value);
                 $this->UpdateVariableString('ChannelName', $val);
+                $this->UpdateInstanceName($val);
                 break;
             case 'BATT_CHARGE':
                 $val = (int)$value;
@@ -245,6 +260,59 @@ class SLXDChannel extends IPSModule
         return $value;
     }
 
+    private function ParseFirstRepValue($raw)
+    {
+        if (!preg_match_all('/<\s*REP\s+(.+?)\s*>/i', $raw, $matches)) {
+            return '';
+        }
+
+        foreach ($matches[1] as $payload) {
+            $payload = trim($payload);
+            if ($payload === '') continue;
+            $parts = preg_split('/\s+/', $payload, 2);
+            if (count($parts) == 0) continue;
+            if (strtoupper($parts[0]) === 'ERR') continue;
+            if (count($parts) >= 2) return trim($parts[1]);
+            return '';
+        }
+
+        return '';
+    }
+
+    private function UpdateInstanceName($channelName)
+    {
+        $channelName = trim((string)$channelName);
+        if ($channelName === '') return;
+
+        $prefix = $this->GetNamePrefix();
+        $name = $prefix . ' ' . $channelName;
+        @IPS_SetName($this->InstanceID, $name);
+    }
+
+    private function GetNamePrefix()
+    {
+        $model = trim((string)$this->GetBuffer('Model'));
+        if ($model === '') {
+            $model = $this->TrimBraces($this->SendCommandSync("< GET MODEL >"));
+            if ($model !== '') {
+                $this->SetBuffer('Model', $model);
+            }
+        }
+        if ($model !== '') return $model;
+
+        $deviceID = trim((string)$this->GetBuffer('DeviceID'));
+        if ($deviceID === '') {
+            $deviceID = $this->TrimBraces($this->SendCommandSync("< GET DEVICE_ID >"));
+            if ($deviceID !== '') {
+                $this->SetBuffer('DeviceID', $deviceID);
+            }
+        }
+        if ($deviceID !== '') return $deviceID;
+
+        $host = trim((string)$this->ReadPropertyString('Host'));
+        return ($host !== '') ? $host : 'SLXD';
+    }
+
     private function SendCommand($cmd, $context)
     {
         if (!$this->IsParentConnected()) {
@@ -287,14 +355,7 @@ class SLXDChannel extends IPSModule
 
         fclose($sock);
 
-        if (preg_match('/^<\s*REP\s+(.+?)\s*>$/im', $response, $m)) {
-            $parts = preg_split('/\s+/', trim($m[1]), 2);
-            if (count($parts) >= 2) {
-                return trim($parts[1]);
-            }
-        }
-
-        return '';
+        return $this->ParseFirstRepValue($response);
     }
 
     private function EnsureParentClientSocket()

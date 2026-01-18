@@ -145,6 +145,9 @@ class SLXDConfigurator extends IPSModule
             $deviceID = isset($row['DeviceID']) ? (string)$row['DeviceID'] : '';
             $firmware = isset($row['Firmware']) ? (string)$row['Firmware'] : '';
             $channels = isset($row['Channels']) ? (int)$row['Channels'] : 1;
+            $model = $this->TrimBraces($model);
+            $deviceID = $this->TrimBraces($deviceID);
+            $firmware = $this->TrimBraces($firmware);
 
             for ($ch = 1; $ch <= $channels; $ch++) {
                 $existing = $this->FindInstanceByHostAndChannel($channelModuleID, $ip, $ch);
@@ -159,7 +162,13 @@ class SLXDConfigurator extends IPSModule
                 );
 
                 if ($existing == 0) {
-                    $name = ($deviceID !== '') ? ($deviceID . ' CH' . $ch) : ($ip . ' CH' . $ch);
+                    if ($deviceID !== '') {
+                        $name = $deviceID . ' CH' . $ch;
+                    } elseif ($model !== '') {
+                        $name = $model . ' CH' . $ch;
+                    } else {
+                        $name = $ip . ' CH' . $ch;
+                    }
                     $rowOut['create'] = array(
                         'moduleID' => $channelModuleID,
                         'name' => $name,
@@ -223,19 +232,30 @@ class SLXDConfigurator extends IPSModule
 
     private function ParseResponse($raw)
     {
-        $lines = preg_split('/[\r\n]+/', trim($raw));
-        foreach ($lines as $line) {
-            $t = trim($line);
-            if ($t === '') continue;
-
-            if (preg_match('/^<\s*REP\s+(.+?)\s*>$/i', $t, $m)) {
-                $parts = preg_split('/\s+/', trim($m[1]), 2);
-                if (count($parts) >= 2) {
-                    return trim($parts[1]);
-                }
-            }
+        if (!preg_match_all('/<\s*REP\s+(.+?)\s*>/i', $raw, $matches)) {
+            return '';
         }
+
+        foreach ($matches[1] as $payload) {
+            $payload = trim($payload);
+            if ($payload === '') continue;
+            $parts = preg_split('/\s+/', $payload, 2);
+            if (count($parts) == 0) continue;
+            if (strtoupper($parts[0]) === 'ERR') continue;
+            if (count($parts) >= 2) return trim($parts[1]);
+            return '';
+        }
+
         return '';
+    }
+
+    private function TrimBraces($value)
+    {
+        $value = trim((string)$value);
+        if (strlen($value) >= 2 && $value[0] == '{' && substr($value, -1) == '}') {
+            return trim(substr($value, 1, -1));
+        }
+        return $value;
     }
 
     private function DetectChannels($model)
