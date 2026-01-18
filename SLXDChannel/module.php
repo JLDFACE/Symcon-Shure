@@ -82,6 +82,7 @@ class SLXDChannel extends IPSModule
         $this->SendDebug('SLXD RX', $buffer, 0);
 
         $buf = $this->GetBuffer('RxBuf') . $buffer;
+        $buf = str_replace("\r", "\n", $buf);
         $lines = array();
 
         while (true) {
@@ -157,7 +158,7 @@ class SLXDChannel extends IPSModule
 
     private function ProcessLine($line)
     {
-        if (!preg_match('/^<\s*REP\s+(\d+)\s+([A-Z_]+)\s+(.+?)\s*>$/i', $line, $m)) {
+        if (!preg_match('/^<\s*REP\s+(\d+)\s+([A-Z_]+)\s*(.*?)\s*>$/i', $line, $m)) {
             return;
         }
 
@@ -184,7 +185,7 @@ class SLXDChannel extends IPSModule
                 $this->UpdateVariable('Frequency', $val);
                 break;
             case 'CHAN_NAME':
-                $val = trim($value, '{}');
+                $val = $this->TrimBraces($value);
                 $this->UpdateVariableString('ChannelName', $val);
                 break;
             case 'BATT_CHARGE':
@@ -196,7 +197,7 @@ class SLXDChannel extends IPSModule
                 $this->UpdateVariable('RFLevel', $val);
                 break;
             case 'TX_MODEL':
-                $val = trim($value);
+                $val = $this->TrimBraces($value);
                 $this->UpdateVariableString('TXModel', $val);
                 break;
         }
@@ -233,6 +234,15 @@ class SLXDChannel extends IPSModule
                 SetValueString($id, $stringValue);
             }
         }
+    }
+
+    private function TrimBraces($value)
+    {
+        $value = trim((string)$value);
+        if (strlen($value) >= 2 && $value[0] == '{' && substr($value, -1) == '}') {
+            return trim(substr($value, 1, -1));
+        }
+        return $value;
     }
 
     private function SendCommand($cmd, $context)
