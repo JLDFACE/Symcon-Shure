@@ -161,8 +161,9 @@ class SLXDChannel extends IPSModule
     public function SetGain(int $gain)
     {
         $ch = (int)$this->ReadPropertyInteger('Channel');
-        $g = max(-25, min(10, (int)$gain));
-        if (!$this->SendCommand("< SET " . $ch . " AUDIO_GAIN " . $g . " >", 'Gain')) {
+        $g = max(-18, min(42, (int)$gain));
+        $raw = $this->GainDbToRaw($g);
+        if (!$this->SendCommand("< SET " . $ch . " AUDIO_GAIN " . $raw . " >", 'Gain')) {
             return;
         }
 
@@ -191,7 +192,7 @@ class SLXDChannel extends IPSModule
                 $this->UpdateVariable('Mute', $val);
                 break;
             case 'AUDIO_GAIN':
-                $val = (int)$value;
+                $val = $this->GainRawToDb((int)$value);
                 $this->UpdateVariable('Gain', $val);
                 break;
             case 'FREQUENCY':
@@ -260,6 +261,16 @@ class SLXDChannel extends IPSModule
         return $value;
     }
 
+    private function GainRawToDb($raw)
+    {
+        return (int)$raw - 18;
+    }
+
+    private function GainDbToRaw($db)
+    {
+        return (int)$db + 18;
+    }
+
     private function ParseFirstRepValue($raw)
     {
         if (!preg_match_all('/<\s*REP\s+(.+?)\s*>/i', $raw, $matches)) {
@@ -285,7 +296,7 @@ class SLXDChannel extends IPSModule
         if ($channelName === '') return;
 
         $prefix = $this->GetNamePrefix();
-        $name = $prefix . ' ' . $channelName;
+        $name = $prefix . ' "' . $channelName . '"';
         @IPS_SetName($this->InstanceID, $name);
     }
 
@@ -521,9 +532,9 @@ class SLXDChannel extends IPSModule
     {
         if (!IPS_VariableProfileExists('SLXD.Gain')) {
             IPS_CreateVariableProfile('SLXD.Gain', 1);
-            IPS_SetVariableProfileValues('SLXD.Gain', -25, 10, 1);
-            IPS_SetVariableProfileText('SLXD.Gain', '', ' dB');
         }
+        IPS_SetVariableProfileValues('SLXD.Gain', -18, 42, 1);
+        IPS_SetVariableProfileText('SLXD.Gain', '', ' dB');
 
         if (!IPS_VariableProfileExists('SLXD.Frequency')) {
             IPS_CreateVariableProfile('SLXD.Frequency', 1);
