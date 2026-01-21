@@ -34,8 +34,9 @@ class SLXDChannel extends IPSModule
         parent::ApplyChanges();
 
         $this->RegisterVariableBoolean('Online', 'Online', '~Alert.Reversed', 1);
-        $this->RegisterVariableString('LastError', 'LastError', '', 2);
-        $this->RegisterVariableInteger('LastOKTimestamp', 'LastOKTimestamp', '~UnixTimestamp', 3);
+        $this->RegisterVariableBoolean('Verbunden', 'Verbunden', '~Alert.Reversed', 2);
+        $this->RegisterVariableString('LastError', 'LastError', '', 3);
+        $this->RegisterVariableInteger('LastOKTimestamp', 'LastOKTimestamp', '~UnixTimestamp', 4);
 
         $ch = (int)$this->ReadPropertyInteger('Channel');
 
@@ -63,6 +64,10 @@ class SLXDChannel extends IPSModule
         $this->RegisterVariableInteger('RFLevel', 'RF Level', 'SLXD.RFLevel', 32);
 
         $this->RegisterVariableString('TXModel', 'TX Model', '', 40);
+        $txId = @$this->GetIDForIdent('TXModel');
+        if ($txId > 0) {
+            $this->UpdateTxConnected(GetValueString($txId));
+        }
 
         $this->EnsureParentClientSocket();
 
@@ -255,6 +260,7 @@ class SLXDChannel extends IPSModule
             case 'TX_MODEL':
                 $val = $this->TrimBraces($value);
                 $this->UpdateVariableString('TXModel', $val);
+                $this->UpdateTxConnected($val);
                 break;
         }
     }
@@ -288,6 +294,20 @@ class SLXDChannel extends IPSModule
             $current = GetValueString($id);
             if ($current !== $stringValue) {
                 SetValueString($id, $stringValue);
+            }
+        }
+    }
+
+    private function UpdateTxConnected($txModel)
+    {
+        $val = strtoupper(trim((string)$txModel));
+        $connected = ($val !== '' && $val !== 'UNKNOWN');
+
+        $id = @$this->GetIDForIdent('Verbunden');
+        if ($id > 0) {
+            $current = GetValueBoolean($id);
+            if ($current !== $connected) {
+                SetValueBoolean($id, $connected);
             }
         }
     }
