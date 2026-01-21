@@ -12,6 +12,7 @@ class SLXDChannel extends IPSModule
         $this->RegisterPropertyInteger('Port', 2202);
         $this->RegisterPropertyInteger('Channel', 1);
         $this->RegisterPropertyString('DeviceFamily', 'auto');
+        $this->RegisterPropertyString('ModelHint', '');
 
         $this->RegisterPropertyInteger('PollSlow', 15);
         $this->RegisterPropertyInteger('PollFast', 3);
@@ -65,6 +66,7 @@ class SLXDChannel extends IPSModule
         $this->RegisterVariableInteger('RFLevel', 'RF Level', 'SLXD.RFLevel', 32);
 
         $this->RegisterVariableString('TXModel', 'TX Model', '', 40);
+        $this->PrimeModelHint();
         $txId = @$this->GetIDForIdent('TXModel');
         if ($txId > 0) {
             $this->UpdateTxConnected(GetValueString($txId));
@@ -356,6 +358,17 @@ class SLXDChannel extends IPSModule
         }
     }
 
+    private function PrimeModelHint()
+    {
+        $hint = trim((string)$this->ReadPropertyString('ModelHint'));
+        if ($hint === '') return;
+
+        $current = trim((string)$this->GetBuffer('Model'));
+        if ($current === '') {
+            $this->SetBuffer('Model', $hint);
+        }
+    }
+
     private function GetDeviceFamily()
     {
         $family = $this->NormalizeFamily($this->ReadPropertyString('DeviceFamily'));
@@ -365,18 +378,19 @@ class SLXDChannel extends IPSModule
 
         $model = trim((string)$this->GetBuffer('Model'));
         if ($model === '') {
-            $model = $this->TrimBraces($this->SendCommandSync("< GET MODEL >"));
-            if ($model !== '') {
-                $this->SetBuffer('Model', $model);
-            }
+            $model = trim((string)$this->ReadPropertyString('ModelHint'));
+        }
+        $family = $this->DetectFamilyFromModel($model);
+        if ($family !== '') {
+            return $family;
         }
 
-        $m = strtoupper($model);
-        if (strpos($m, 'ULXD') !== false || strpos($m, 'QLXD') !== false) {
-            return 'ulxd';
-        }
-        if (strpos($m, 'SLXD') !== false || strpos($m, 'SLX') !== false) {
-            return 'slxd';
+        $txId = @$this->GetIDForIdent('TXModel');
+        if ($txId > 0) {
+            $family = $this->DetectFamilyFromModel(GetValueString($txId));
+            if ($family !== '') {
+                return $family;
+            }
         }
 
         return 'slxd';
@@ -388,6 +402,15 @@ class SLXDChannel extends IPSModule
         if ($family === 'qlxd') return 'ulxd';
         if ($family === 'ulxd' || $family === 'slxd') return $family;
         return 'auto';
+    }
+
+    private function DetectFamilyFromModel($model)
+    {
+        $m = strtoupper($this->TrimBraces((string)$model));
+        if ($m === '') return '';
+        if (strpos($m, 'ULXD') !== false || strpos($m, 'QLXD') !== false) return 'ulxd';
+        if (strpos($m, 'SLXD') !== false || strpos($m, 'SLX') !== false) return 'slxd';
+        return '';
     }
 
     private function TrimBraces($value)
@@ -523,21 +546,9 @@ class SLXDChannel extends IPSModule
     private function GetNamePrefix()
     {
         $model = trim((string)$this->GetBuffer('Model'));
-        if ($model === '') {
-            $model = $this->TrimBraces($this->SendCommandSync("< GET MODEL >"));
-            if ($model !== '') {
-                $this->SetBuffer('Model', $model);
-            }
-        }
         if ($model !== '') return $model;
 
         $deviceID = trim((string)$this->GetBuffer('DeviceID'));
-        if ($deviceID === '') {
-            $deviceID = $this->TrimBraces($this->SendCommandSync("< GET DEVICE_ID >"));
-            if ($deviceID !== '') {
-                $this->SetBuffer('DeviceID', $deviceID);
-            }
-        }
         if ($deviceID !== '') return $deviceID;
 
         $host = trim((string)$this->ReadPropertyString('Host'));

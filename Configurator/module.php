@@ -186,7 +186,8 @@ class SLXDConfigurator extends IPSModule
                             'Host' => $ip,
                             'Port' => $port,
                             'Channel' => $ch,
-                            'DeviceFamily' => $family
+                            'DeviceFamily' => $family,
+                            'ModelHint' => $model
                         )
                     );
                 }
