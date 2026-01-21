@@ -214,12 +214,16 @@ class SLXDChannel extends IPSModule
                 $this->UpdateInstanceName($val);
                 break;
             case 'BATT_CHARGE':
-                $val = (int)$value;
-                $this->UpdateVariable('Battery', $val);
+                $val = $this->ParseNumericValue($value);
+                if ($val !== null) {
+                    $this->UpdateVariable('Battery', $val);
+                }
                 break;
             case 'RF_LEVEL':
-                $val = (int)$value;
-                $this->UpdateVariable('RFLevel', $val);
+                $val = $this->ParseNumericValue($value);
+                if ($val !== null) {
+                    $this->UpdateVariable('RFLevel', $val);
+                }
                 break;
             case 'TX_MODEL':
                 $val = $this->TrimBraces($value);
@@ -289,6 +293,18 @@ class SLXDChannel extends IPSModule
             return (float)$value;
         }
         return ((int)$value) / 1000.0;
+    }
+
+    private function ParseNumericValue($value)
+    {
+        $value = $this->TrimBraces($value);
+        if ($value === '') return null;
+        if (preg_match('/-?\d+(?:\.\d+)?/', $value, $m)) {
+            return (int)round((float)$m[0]);
+        }
+
+        $this->SendDebug('SLXD PARSE', 'Unparseable numeric value: ' . $value, 0);
+        return null;
     }
 
     private function GainRawToDb($raw)
