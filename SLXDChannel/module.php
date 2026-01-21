@@ -234,8 +234,10 @@ class SLXDChannel extends IPSModule
                 break;
             case 'BATT_CHARGE':
                 $val = $this->ParseNumericValue($value);
-                if ($val !== null) {
+                if ($val !== null && $val >= 0 && $val <= 100) {
                     $this->UpdateVariable('Battery', $val);
+                } else {
+                    $this->ResetBatteryIfInvalid();
                 }
                 break;
             case 'BATT_BARS':
@@ -244,7 +246,11 @@ class SLXDChannel extends IPSModule
                     $percent = $this->BatteryBarsToPercent($val);
                     if ($percent !== null) {
                         $this->UpdateVariable('Battery', $percent);
+                    } else {
+                        $this->ResetBatteryIfInvalid();
                     }
+                } else {
+                    $this->ResetBatteryIfInvalid();
                 }
                 break;
             case 'TX_BATT_BARS':
@@ -253,19 +259,27 @@ class SLXDChannel extends IPSModule
                     $percent = $this->BatteryBarsToPercent($val);
                     if ($percent !== null) {
                         $this->UpdateVariable('Battery', $percent);
+                    } else {
+                        $this->ResetBatteryIfInvalid();
                     }
+                } else {
+                    $this->ResetBatteryIfInvalid();
                 }
                 break;
             case 'BATT_RUN_TIME':
                 $val = $this->ParseNumericValue($value);
-                if ($val !== null && $val < 65534) {
+                if ($val !== null && $val < 65533) {
                     $this->UpdateVariable('BatteryMinutes', $val);
+                } else {
+                    $this->ResetBatteryMinutesIfInvalid();
                 }
                 break;
             case 'TX_BATT_MINS':
                 $val = $this->ParseNumericValue($value);
                 if ($val !== null && $val < 65534) {
                     $this->UpdateVariable('BatteryMinutes', $val);
+                } else {
+                    $this->ResetBatteryMinutesIfInvalid();
                 }
                 break;
             case 'RF_LEVEL':
@@ -399,6 +413,28 @@ class SLXDChannel extends IPSModule
         }
     }
 
+    private function ResetBatteryIfInvalid()
+    {
+        $id = @$this->GetIDForIdent('Battery');
+        if ($id > 0) {
+            $current = GetValueInteger($id);
+            if ($current > 100) {
+                SetValueInteger($id, 0);
+            }
+        }
+    }
+
+    private function ResetBatteryMinutesIfInvalid()
+    {
+        $id = @$this->GetIDForIdent('BatteryMinutes');
+        if ($id > 0) {
+            $current = GetValueInteger($id);
+            if ($current > 10000) {
+                SetValueInteger($id, 0);
+            }
+        }
+    }
+
     private function PrimeModelHint()
     {
         $hint = trim((string)$this->ReadPropertyString('ModelHint'));
@@ -528,6 +564,7 @@ class SLXDChannel extends IPSModule
     private function BatteryBarsToPercent($bars)
     {
         if ($bars < 0) return null;
+        if ($bars == 255) return null;
         if ($bars <= 5) return $bars * 20;
         if ($bars <= 100) return $bars;
         return null;
