@@ -34,7 +34,7 @@ class SLXDChannel extends IPSModule
         parent::ApplyChanges();
 
         $this->RegisterVariableBoolean('Online', 'Online', '~Alert.Reversed', 1);
-        $this->RegisterVariableBoolean('Verbunden', 'Verbunden', '~Alert.Reversed', 2);
+        $this->RegisterVariableBoolean('Verbunden', 'Verbunden', 'SLXD.Connected', 2);
         $this->RegisterVariableString('LastError', 'LastError', '', 3);
         $this->RegisterVariableInteger('LastOKTimestamp', 'LastOKTimestamp', '~UnixTimestamp', 4);
 
@@ -683,6 +683,12 @@ class SLXDChannel extends IPSModule
 
     private function CreateProfiles()
     {
+        if (!IPS_VariableProfileExists('SLXD.Connected')) {
+            IPS_CreateVariableProfile('SLXD.Connected', 0);
+            IPS_SetVariableProfileAssociation('SLXD.Connected', 0, 'nicht verbunden', '', 0);
+            IPS_SetVariableProfileAssociation('SLXD.Connected', 1, 'verbunden', '', 0);
+        }
+
         if (!IPS_VariableProfileExists('SLXD.Gain')) {
             IPS_CreateVariableProfile('SLXD.Gain', 1);
         }
