@@ -1,6 +1,6 @@
 <?php
 
-class SLXDConfigurator extends IPSModule
+class ShureConfigurator extends IPSModule
 {
     public function Create()
     {
