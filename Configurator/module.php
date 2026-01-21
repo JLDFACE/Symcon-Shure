@@ -209,16 +209,36 @@ class ShureConfigurator extends IPSModule
     private function ProbeDevice($ip, $port)
     {
         $model = $this->SendCommandOnce($ip, $port, '< GET MODEL >', 'MODEL');
+
+        $rawAll = '';
         if ($model === '') {
-            $model = $this->SendCommandOnce($ip, $port, '< GET 0 ALL >', 'MODEL', 0.8, 1.5);
+            $rawAll = $this->SendCommandRaw($ip, $port, '< GET 1 ALL >', 0.8, 1.5);
+            if ($rawAll === '') {
+                $rawAll = $this->SendCommandRaw($ip, $port, '< GET 0 ALL >', 0.8, 1.5);
+            }
         }
+
         $family = $this->DetectFamily($model);
+        if ($family === '' && $rawAll !== '') {
+            $family = $this->DetectFamilyFromRaw($rawAll);
+            if ($family === 'ulxd' && $model === '') {
+                $model = 'QLXD';
+            }
+        }
         if ($model === '' || $family === '') {
             return array('ok' => false);
         }
 
         $deviceID = $this->SendCommandOnce($ip, $port, '< GET DEVICE_ID >', 'DEVICE_ID');
         $firmware = $this->SendCommandOnce($ip, $port, '< GET FW_VER >', 'FW_VER');
+        if ($rawAll !== '') {
+            if ($deviceID === '') {
+                $deviceID = $this->ParseResponseFor($rawAll, 'DEVICE_ID');
+            }
+            if ($firmware === '') {
+                $firmware = $this->ParseResponseFor($rawAll, 'FW_VER');
+            }
+        }
 
         return array(
             'ok' => true,
@@ -256,6 +276,32 @@ class ShureConfigurator extends IPSModule
             return $this->ParseResponseFor($response, $expect);
         }
         return $this->ParseResponse($response);
+    }
+
+    private function SendCommandRaw($ip, $port, $cmd, $timeoutSec = 0.8, $readSeconds = 0.8)
+    {
+        $timeout = max(0.2, (float)$timeoutSec);
+        $sock = @fsockopen($ip, $port, $errno, $errstr, $timeout);
+        if (!$sock) return '';
+
+        $readSeconds = max(0.2, (float)$readSeconds);
+        stream_set_timeout($sock, 0, (int)($readSeconds * 1000000));
+
+        @fwrite($sock, $cmd . "\r\n");
+        usleep(50000);
+
+        $response = '';
+        $start = microtime(true);
+        while (microtime(true) - $start < $readSeconds) {
+            $chunk = fgets($sock, 1024);
+            if ($chunk === false) break;
+            $response .= $chunk;
+            if (strlen($response) > 8192) break;
+        }
+
+        fclose($sock);
+
+        return $response;
     }
 
     private function ParseResponse($raw)
@@ -327,6 +373,19 @@ class ShureConfigurator extends IPSModule
             return 'ulxd';
         }
 
+        return '';
+    }
+
+    private function DetectFamilyFromRaw($raw)
+    {
+        $raw = strtoupper((string)$raw);
+        if (strpos($raw, 'RX_RF_LVL') !== false || strpos($raw, 'RF_ANTENNA') !== false
+            || strpos($raw, 'BATT_RUN_TIME') !== false || strpos($raw, 'TX_TYPE') !== false) {
+            return 'ulxd';
+        }
+        if (strpos($raw, 'TX_BATT_') !== false || strpos($raw, 'RSSI') !== false) {
+            return 'slxd';
+        }
         return '';
     }
 
