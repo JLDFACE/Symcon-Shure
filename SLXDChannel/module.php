@@ -620,6 +620,8 @@ class SLXDChannel extends IPSModule
             $configureID = $parentID;
         } elseif ($this->ParentMatchesHost($parentID, $host, $port)) {
             $configureID = $parentID;
+        } elseif ($this->ParentNeedsConfig($parentID)) {
+            $configureID = $parentID;
         } else {
             $this->SendDebug('SLXD', 'Kein passender Socket fuer ' . $host . ':' . $port, 0);
             return;
@@ -658,6 +660,16 @@ class SLXDChannel extends IPSModule
         $h = (string)IPS_GetProperty($parentID, 'Host');
         $p = (int)IPS_GetProperty($parentID, 'Port');
         return ($h === $host && $p === $port);
+    }
+
+    private function ParentNeedsConfig($parentID)
+    {
+        if ($parentID <= 0 || !IPS_InstanceExists($parentID)) {
+            return false;
+        }
+        $h = trim((string)IPS_GetProperty($parentID, 'Host'));
+        $p = (int)IPS_GetProperty($parentID, 'Port');
+        return ($h === '' || $h === '0.0.0.0' || $p <= 0);
     }
 
     private function FindSharedClientSocket($host, $port)
