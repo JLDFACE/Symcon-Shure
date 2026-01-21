@@ -267,6 +267,7 @@ class ShureConfigurator extends IPSModule
         foreach ($matches[1] as $payload) {
             $payload = trim($payload);
             if ($payload === '') continue;
+            $payload = preg_replace('/^\d+\s+/', '', $payload);
             $parts = preg_split('/\s+/', $payload, 2);
             if (count($parts) == 0) continue;
             if (strtoupper($parts[0]) === 'ERR') continue;
@@ -291,6 +292,8 @@ class ShureConfigurator extends IPSModule
         foreach ($matches[1] as $payload) {
             $payload = trim($payload);
             if ($payload === '') continue;
+            if (strtoupper($payload) === 'ERR') continue;
+            $payload = preg_replace('/^\d+\s+/', '', $payload);
             $parts = preg_split('/\s+/', $payload, 2);
             if (count($parts) == 0) continue;
             $key = strtoupper($parts[0]);
