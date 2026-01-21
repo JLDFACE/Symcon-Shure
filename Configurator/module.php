@@ -209,6 +209,9 @@ class SLXDConfigurator extends IPSModule
     private function ProbeDevice($ip, $port)
     {
         $model = $this->SendCommandOnce($ip, $port, '< GET MODEL >', 'MODEL');
+        if ($model === '') {
+            $model = $this->SendCommandOnce($ip, $port, '< GET 0 ALL >', 'MODEL', 0.8, 1.5);
+        }
         $family = $this->DetectFamily($model);
         if ($model === '' || $family === '') {
             return array('ok' => false);
@@ -226,20 +229,21 @@ class SLXDConfigurator extends IPSModule
         );
     }
 
-    private function SendCommandOnce($ip, $port, $cmd, $expect)
+    private function SendCommandOnce($ip, $port, $cmd, $expect, $timeoutSec = 0.8, $readSeconds = 0.8)
     {
-        $timeout = 0.5;
+        $timeout = max(0.2, (float)$timeoutSec);
         $sock = @fsockopen($ip, $port, $errno, $errstr, $timeout);
         if (!$sock) return '';
 
-        stream_set_timeout($sock, 0, 500000);
+        $readSeconds = max(0.2, (float)$readSeconds);
+        stream_set_timeout($sock, 0, (int)($readSeconds * 1000000));
 
         @fwrite($sock, $cmd . "\r\n");
         usleep(50000);
 
         $response = '';
         $start = microtime(true);
-        while (microtime(true) - $start < 0.5) {
+        while (microtime(true) - $start < $readSeconds) {
             $chunk = fgets($sock, 1024);
             if ($chunk === false) break;
             $response .= $chunk;
