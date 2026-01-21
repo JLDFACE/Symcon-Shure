@@ -620,15 +620,9 @@ class SLXDChannel extends IPSModule
             $configureID = $parentID;
         } elseif ($this->ParentMatchesHost($parentID, $host, $port)) {
             $configureID = $parentID;
-        } elseif (function_exists('IPS_CreateInstance') && function_exists('IPS_ConnectInstance')) {
-            $newID = IPS_CreateInstance('{3CFF0FD9-E306-41DB-9B5A-9D06D38576C3}');
-            IPS_SetProperty($newID, 'Host', $host);
-            IPS_SetProperty($newID, 'Port', $port);
-            IPS_SetProperty($newID, 'Open', false);
-            IPS_ApplyChanges($newID);
-            @IPS_ConnectInstance($this->InstanceID, $newID);
-            $parentID = $newID;
-            $configureID = $newID;
+        } else {
+            $this->SendDebug('SLXD', 'Kein passender Socket fuer ' . $host . ':' . $port, 0);
+            return;
         }
 
         if ($configureID > 0 && IPS_InstanceExists($configureID)) {
