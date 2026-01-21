@@ -62,6 +62,7 @@ class SLXDConfigurator extends IPSModule
                 $deviceID = $probe['deviceID'];
                 $firmware = $probe['firmware'];
                 $channels = $this->DetectChannels($model);
+                $family = isset($probe['family']) ? $probe['family'] : $this->DetectFamily($model);
 
                 $found[] = array(
                     'IP' => $ip,
@@ -69,7 +70,8 @@ class SLXDConfigurator extends IPSModule
                     'Model' => $model,
                     'DeviceID' => $deviceID,
                     'Firmware' => $firmware,
-                    'Channels' => $channels
+                    'Channels' => $channels,
+                    'Family' => $family
                 );
             }
         }
@@ -114,6 +116,7 @@ class SLXDConfigurator extends IPSModule
         $deviceID = $probe['deviceID'];
         $firmware = $probe['firmware'];
         $channels = $this->DetectChannels($model);
+        $family = isset($probe['family']) ? $probe['family'] : $this->DetectFamily($model);
 
         $newDevice = array(
             'IP' => $ip,
@@ -121,7 +124,8 @@ class SLXDConfigurator extends IPSModule
             'Model' => $model,
             'DeviceID' => $deviceID,
             'Firmware' => $firmware,
-            'Channels' => $channels
+            'Channels' => $channels,
+            'Family' => $family
         );
 
         $newRows = $this->BuildValues(array($newDevice));
@@ -145,9 +149,14 @@ class SLXDConfigurator extends IPSModule
             $deviceID = isset($row['DeviceID']) ? (string)$row['DeviceID'] : '';
             $firmware = isset($row['Firmware']) ? (string)$row['Firmware'] : '';
             $channels = isset($row['Channels']) ? (int)$row['Channels'] : 1;
+            $family = isset($row['Family']) ? strtolower(trim((string)$row['Family'])) : 'auto';
             $model = $this->TrimBraces($model);
             $deviceID = $this->TrimBraces($deviceID);
             $firmware = $this->TrimBraces($firmware);
+            if ($family === '') $family = 'auto';
+            $familyLabel = $family;
+            if ($family === 'slxd') $familyLabel = 'SLX-D';
+            if ($family === 'ulxd') $familyLabel = 'QLX-D/ULX-D';
 
             for ($ch = 1; $ch <= $channels; $ch++) {
                 $existing = $this->FindInstanceByHostAndChannel($channelModuleID, $ip, $ch);
@@ -158,6 +167,7 @@ class SLXDConfigurator extends IPSModule
                     'DeviceID' => $deviceID,
                     'Firmware' => $firmware,
                     'Channels' => $channels . ' (CH' . $ch . ')',
+                    'Family' => $familyLabel,
                     'instanceID' => ($existing > 0) ? $existing : 0
                 );
 
@@ -175,7 +185,8 @@ class SLXDConfigurator extends IPSModule
                         'configuration' => array(
                             'Host' => $ip,
                             'Port' => $port,
-                            'Channel' => $ch
+                            'Channel' => $ch,
+                            'DeviceFamily' => $family
                         )
                     );
                 }
@@ -201,7 +212,8 @@ class SLXDConfigurator extends IPSModule
 
         fclose($sock);
 
-        if ($model === '' || (stripos($model, 'SLX') === false && stripos($model, 'SLXD') === false)) {
+        $family = $this->DetectFamily($model);
+        if ($model === '' || $family === '') {
             return array('ok' => false);
         }
 
@@ -209,7 +221,8 @@ class SLXDConfigurator extends IPSModule
             'ok' => true,
             'model' => $model,
             'deviceID' => $deviceID,
-            'firmware' => $firmware
+            'firmware' => $firmware,
+            'family' => $family
         );
     }
 
@@ -258,11 +271,28 @@ class SLXDConfigurator extends IPSModule
         return $value;
     }
 
+    private function DetectFamily($model)
+    {
+        $m = strtoupper($this->TrimBraces((string)$model));
+        if ($m === '') return '';
+
+        if (strpos($m, 'SLXD') !== false || strpos($m, 'SLX') !== false) {
+            return 'slxd';
+        }
+        if (strpos($m, 'QLXD') !== false || strpos($m, 'QLX') !== false || strpos($m, 'ULXD') !== false) {
+            return 'ulxd';
+        }
+
+        return '';
+    }
+
     private function DetectChannels($model)
     {
         $m = strtoupper(trim((string)$model));
-        if (strpos($m, 'SLXD4D') !== false || strpos($m, 'SLX4D') !== false) return 2;
-        if (strpos($m, 'SLXD24D') !== false || strpos($m, 'SLXD44') !== false) return 4;
+        if (strpos($m, 'SLXD24D') !== false || strpos($m, 'SLXD44') !== false
+            || strpos($m, 'ULXD4Q') !== false || strpos($m, 'QLXD4Q') !== false) return 4;
+        if (strpos($m, 'SLXD4D') !== false || strpos($m, 'SLX4D') !== false
+            || strpos($m, 'ULXD4D') !== false || strpos($m, 'QLXD4D') !== false) return 2;
         return 1;
     }
 

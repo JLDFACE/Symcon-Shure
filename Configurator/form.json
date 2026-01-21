@@ -51,11 +51,12 @@
     {
       "type": "Configurator",
       "name": "DeviceList",
-      "caption": "Gefundene SLXD Receiver",
+      "caption": "Gefundene SLX-D/QLX-D Receiver",
       "delete": true,
       "columns": [
         { "label": "IP", "name": "IP", "width": "120px" },
         { "label": "Model", "name": "Model", "width": "100px" },
+        { "label": "Family", "name": "Family", "width": "120px" },
         { "label": "Device ID", "name": "DeviceID", "width": "150px" },
         { "label": "Firmware", "name": "Firmware", "width": "100px" },
         { "label": "Channels", "name": "Channels", "width": "80px" }

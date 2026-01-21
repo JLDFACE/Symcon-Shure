@@ -24,6 +24,16 @@
       ]
     },
     {
+      "type": "Select",
+      "name": "DeviceFamily",
+      "caption": "Device Family",
+      "options": [
+        { "label": "Auto", "value": "auto" },
+        { "label": "SLX-D", "value": "slxd" },
+        { "label": "QLX-D / ULX-D", "value": "ulxd" }
+      ]
+    },
+    {
       "type": "NumberSpinner",
       "name": "PollSlow",
       "caption": "Poll Slow (s)",
