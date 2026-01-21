@@ -29,6 +29,7 @@ class SLXDChannel extends IPSModule
         $this->SetBuffer('Model', '');
         $this->SetBuffer('Rssi1', '');
         $this->SetBuffer('Rssi2', '');
+        $this->SetBuffer('LastReconnect', '0');
     }
 
     public function ApplyChanges()
@@ -607,22 +608,43 @@ class SLXDChannel extends IPSModule
 
         $inst = IPS_GetInstance($this->InstanceID);
         $parentID = isset($inst['ConnectionID']) ? (int)$inst['ConnectionID'] : 0;
+        $sharedID = $this->FindSharedClientSocket($host, $port);
+        if ($sharedID > 0 && $sharedID !== $parentID && function_exists('IPS_ConnectInstance')) {
+            @IPS_ConnectInstance($this->InstanceID, $sharedID);
+            $parentID = $sharedID;
+        }
 
         if ($parentID > 0 && IPS_InstanceExists($parentID)) {
             IPS_SetProperty($parentID, 'Host', $host);
             IPS_SetProperty($parentID, 'Port', $port);
 
-            $canConnect = $this->TestTcp($host, $port, 500);
-            $this->SendDebug('SLXD', 'AutoOpen=' . ($canConnect ? 'true' : 'false') . ' for ' . $host . ':' . $port, 0);
+            $this->SendDebug('SLXD', 'AutoOpen=true for ' . $host . ':' . $port, 0);
 
-            $this->CallSilenced(function () use ($parentID, $canConnect) {
-                IPS_SetProperty($parentID, 'Open', $canConnect);
+            $this->CallSilenced(function () use ($parentID) {
+                IPS_SetProperty($parentID, 'Open', true);
             });
 
             $this->CallSilenced(function () use ($parentID) {
                 IPS_ApplyChanges($parentID);
             });
         }
+    }
+
+    private function FindSharedClientSocket($host, $port)
+    {
+        $moduleID = '{3CFF0FD9-E306-41DB-9B5A-9D06D38576C3}';
+        $ids = IPS_GetInstanceListByModuleID($moduleID);
+        foreach ($ids as $id) {
+            if ($id === $this->GetParentInstanceID()) {
+                continue;
+            }
+            $h = (string)IPS_GetProperty($id, 'Host');
+            $p = (int)IPS_GetProperty($id, 'Port');
+            if ($h === $host && $p === $port) {
+                return $id;
+            }
+        }
+        return 0;
     }
 
     private function IsParentConnected()
@@ -661,6 +683,32 @@ class SLXDChannel extends IPSModule
         if ($errId > 0) {
             SetValueString($errId, $message);
         }
+
+        $this->TryReconnectParent($message);
+    }
+
+    private function TryReconnectParent($reason)
+    {
+        $parentID = $this->GetParentInstanceID();
+        if ($parentID <= 0 || !IPS_InstanceExists($parentID)) {
+            return;
+        }
+
+        $now = time();
+        $last = (int)$this->GetBuffer('LastReconnect');
+        if (($now - $last) < 10) {
+            return;
+        }
+
+        $this->SetBuffer('LastReconnect', (string)$now);
+        $this->SendDebug('SLXD', 'Reconnect attempt: ' . $reason, 0);
+
+        $this->CallSilenced(function () use ($parentID) {
+            IPS_SetProperty($parentID, 'Open', true);
+        });
+        $this->CallSilenced(function () use ($parentID) {
+            IPS_ApplyChanges($parentID);
+        });
     }
 
     private function TestTcp($host, $port, $timeout)
