@@ -80,7 +80,9 @@ class SLXDConfigurator extends IPSModule
             }
         }
 
-        $this->WriteAttributeString('Discovered', json_encode($this->BuildValues($found)));
+        $values = $this->BuildValues($found);
+        $this->WriteAttributeString('Discovered', json_encode($values));
+        $this->UpdateFormField('DeviceList', 'values', $values);
         IPS_LogMessage('SLXD CFG', 'Scan beendet, gefunden: ' . count($found));
         $this->SendDebug('SLXD CFG', 'Scan beendet, gefunden: ' . count($found), 0);
     }
@@ -138,6 +140,7 @@ class SLXDConfigurator extends IPSModule
         }
 
         $this->WriteAttributeString('Discovered', json_encode($existing));
+        $this->UpdateFormField('DeviceList', 'values', $existing);
         echo 'Erfolg: Geraet ' . $ip . ' (' . $model . ') wurde hinzugefuegt.';
     }
 
