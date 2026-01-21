@@ -157,11 +157,8 @@ class SLXDChannel extends IPSModule
             $this->SendCommand("< GET " . $ch . " TX_MODEL >", 'TXModel');
         }
 
-        SetValueInteger($this->GetIDForIdent('LastOKTimestamp'), time());
-        SetValueBoolean($this->GetIDForIdent('Online'), true);
-        SetValueString($this->GetIDForIdent('LastError'), '');
-
         $this->CleanupOldPending();
+        $this->MarkOfflineIfStale();
     }
 
     public function ReadDeviceID(): string
@@ -213,6 +210,7 @@ class SLXDChannel extends IPSModule
         if ($repCh !== $myCh) return;
 
         $this->SendDebug('SLXD REP', "CH" . $repCh . " " . $param . "=" . $value, 0);
+        $this->MarkOnline();
 
         switch ($param) {
             case 'AUDIO_MUTE':
@@ -319,6 +317,48 @@ class SLXDChannel extends IPSModule
                 if ($id > 0) {
                     SetValueInteger($id, $intValue);
                 }
+            }
+        }
+    }
+
+    private function MarkOnline()
+    {
+        $tsId = @$this->GetIDForIdent('LastOKTimestamp');
+        if ($tsId > 0) {
+            SetValueInteger($tsId, time());
+        }
+
+        $onlineId = @$this->GetIDForIdent('Online');
+        if ($onlineId > 0 && !GetValueBoolean($onlineId)) {
+            SetValueBoolean($onlineId, true);
+        }
+
+        $errId = @$this->GetIDForIdent('LastError');
+        if ($errId > 0 && GetValueString($errId) !== '') {
+            SetValueString($errId, '');
+        }
+    }
+
+    private function MarkOfflineIfStale()
+    {
+        $tsId = @$this->GetIDForIdent('LastOKTimestamp');
+        if ($tsId <= 0) {
+            return;
+        }
+
+        $last = (int)GetValueInteger($tsId);
+        $pollSlow = (int)$this->ReadPropertyInteger('PollSlow');
+        $pollFast = (int)$this->ReadPropertyInteger('PollFast');
+        $timeout = max(10, max($pollSlow, $pollFast) * 3);
+
+        if ($last <= 0 || (time() - $last) > $timeout) {
+            $onlineId = @$this->GetIDForIdent('Online');
+            if ($onlineId > 0 && GetValueBoolean($onlineId)) {
+                SetValueBoolean($onlineId, false);
+            }
+            $errId = @$this->GetIDForIdent('LastError');
+            if ($errId > 0 && GetValueString($errId) === '') {
+                SetValueString($errId, 'Keine Antwort vom Geraet');
             }
         }
     }
