@@ -28,6 +28,7 @@ class ShureConfigurator extends IPSModule
 
         $values = json_decode($this->ReadAttributeString('Discovered'), true);
         if (!is_array($values)) $values = array();
+        $values = array_values($values);
 
         if (!isset($form['actions']) || !is_array($form['actions'])) $form['actions'] = array();
 
@@ -80,9 +81,11 @@ class ShureConfigurator extends IPSModule
             }
         }
 
-        $values = $this->BuildValues($found);
+        $values = array_values($this->BuildValues($found));
         $this->WriteAttributeString('Discovered', json_encode($values));
-        $this->UpdateFormField('DeviceList', 'values', $values);
+        if (method_exists($this, 'ReloadForm')) {
+            $this->ReloadForm();
+        }
         IPS_LogMessage('SLXD CFG', 'Scan beendet, gefunden: ' . count($found));
         $this->SendDebug('SLXD CFG', 'Scan beendet, gefunden: ' . count($found), 0);
     }
@@ -139,8 +142,11 @@ class ShureConfigurator extends IPSModule
             $existing[] = $row;
         }
 
+        $existing = array_values($existing);
         $this->WriteAttributeString('Discovered', json_encode($existing));
-        $this->UpdateFormField('DeviceList', 'values', $existing);
+        if (method_exists($this, 'ReloadForm')) {
+            $this->ReloadForm();
+        }
         echo 'Erfolg: Geraet ' . $ip . ' (' . $model . ') wurde hinzugefuegt.';
     }
 
