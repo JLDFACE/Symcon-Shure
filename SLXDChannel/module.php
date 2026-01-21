@@ -608,11 +608,13 @@ class SLXDChannel extends IPSModule
 
         $inst = IPS_GetInstance($this->InstanceID);
         $parentID = isset($inst['ConnectionID']) ? (int)$inst['ConnectionID'] : 0;
+        $oldParentID = $parentID;
         $targetID = $this->FindSharedClientSocket($host, $port);
 
         if ($targetID > 0 && $targetID !== $parentID && function_exists('IPS_ConnectInstance')) {
             @IPS_ConnectInstance($this->InstanceID, $targetID);
             $parentID = $targetID;
+            $this->CleanupOrphanedParent($oldParentID);
         }
 
         $configureID = 0;
@@ -670,6 +672,43 @@ class SLXDChannel extends IPSModule
         $h = trim((string)IPS_GetProperty($parentID, 'Host'));
         $p = (int)IPS_GetProperty($parentID, 'Port');
         return ($h === '' || $h === '0.0.0.0' || $p <= 0);
+    }
+
+    private function CleanupOrphanedParent($parentID)
+    {
+        if ($parentID <= 0 || !IPS_InstanceExists($parentID)) {
+            return;
+        }
+        $inst = IPS_GetInstance($parentID);
+        if (!is_array($inst) || !isset($inst['ModuleInfo']['ModuleID'])) {
+            return;
+        }
+        if (strtoupper($inst['ModuleInfo']['ModuleID']) !== '{3CFF0FD9-E306-41DB-9B5A-9D06D38576C3}') {
+            return;
+        }
+        if (!$this->ParentNeedsConfig($parentID)) {
+            return;
+        }
+
+        $children = $this->GetChildrenByConnection($parentID);
+        if (count($children) > 0) {
+            return;
+        }
+
+        @IPS_DeleteInstance($parentID);
+    }
+
+    private function GetChildrenByConnection($parentID)
+    {
+        $children = array();
+        $ids = IPS_GetInstanceList();
+        foreach ($ids as $id) {
+            $inst = IPS_GetInstance($id);
+            if (isset($inst['ConnectionID']) && (int)$inst['ConnectionID'] === (int)$parentID) {
+                $children[] = $id;
+            }
+        }
+        return $children;
     }
 
     private function FindSharedClientSocket($host, $port)
