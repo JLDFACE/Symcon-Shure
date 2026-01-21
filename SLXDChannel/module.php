@@ -701,8 +701,19 @@ class SLXDChannel extends IPSModule
             $configureID = $parentID;
         } elseif ($this->ParentNeedsConfig($parentID)) {
             $configureID = $parentID;
+        } elseif ($this->ParentIsExclusive($parentID)) {
+            $this->SendDebug('SLXD', 'Rekonfiguriere Socket fuer ' . $host . ':' . $port, 0);
+            $configureID = $parentID;
         } else {
-            $this->SendDebug('SLXD', 'Kein passender Socket fuer ' . $host . ':' . $port, 0);
+            $newParentID = $this->CreateClientSocket($host, $port);
+            if ($newParentID > 0 && function_exists('IPS_ConnectInstance')) {
+                $oldParentID = $parentID;
+                @IPS_ConnectInstance($this->InstanceID, $newParentID);
+                $this->CleanupOrphanedParent($oldParentID);
+                $this->SendDebug('SLXD', 'Neuen Socket erstellt: ' . $newParentID, 0);
+            } else {
+                $this->SendDebug('SLXD', 'Kein passender Socket fuer ' . $host . ':' . $port, 0);
+            }
             return;
         }
 
@@ -753,6 +764,20 @@ class SLXDChannel extends IPSModule
         return ($h === '' || $h === '0.0.0.0' || $p <= 0);
     }
 
+    private function ParentIsExclusive($parentID)
+    {
+        if ($parentID <= 0 || !IPS_InstanceExists($parentID)) {
+            return false;
+        }
+        $children = $this->GetChildrenByConnection($parentID);
+        foreach ($children as $child) {
+            if ((int)$child !== (int)$this->InstanceID) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     private function CleanupOrphanedParent($parentID)
     {
         if ($parentID <= 0 || !IPS_InstanceExists($parentID)) {
@@ -789,6 +814,27 @@ class SLXDChannel extends IPSModule
             @IPS_ConnectInstance($this->InstanceID, $primaryID);
             $this->CleanupOrphanedParent($oldParentID);
         }
+    }
+
+    private function CreateClientSocket($host, $port)
+    {
+        if (!function_exists('IPS_CreateInstance')) {
+            return 0;
+        }
+
+        $id = @IPS_CreateInstance('{3CFF0FD9-E306-41DB-9B5A-9D06D38576C3}');
+        if ($id <= 0) {
+            return 0;
+        }
+
+        IPS_SetProperty($id, 'Host', $host);
+        IPS_SetProperty($id, 'Port', $port);
+
+        $canConnect = $this->TestTcp($host, $port, 300);
+        IPS_SetProperty($id, 'Open', $canConnect);
+        IPS_ApplyChanges($id);
+
+        return $id;
     }
 
     private function FindSocketsByHostPort($host, $port)
