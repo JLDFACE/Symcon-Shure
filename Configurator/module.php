@@ -44,15 +44,18 @@ class SLXDConfigurator extends IPSModule
     public function Scan()
     {
         IPS_LogMessage('SLXD CFG', 'Scan() gestartet, Instanz ' . $this->InstanceID);
+        $this->SendDebug('SLXD CFG', 'Scan() gestartet, Instanz ' . $this->InstanceID, 0);
 
         $subnet = $this->GetEffectiveScanSubnet();
         $port = (int)$this->ReadPropertyInteger('Port');
         if ($subnet === '') {
             IPS_LogMessage('SLXD CFG', 'Scan abgebrochen: kein gueltiges Subnetz ermittelt.');
+            $this->SendDebug('SLXD CFG', 'Scan abgebrochen: kein gueltiges Subnetz ermittelt.', 0);
             return;
         }
 
         $ips = $this->ExpandCIDR($subnet, 2048);
+        $this->SendDebug('SLXD CFG', 'Subnetz=' . $subnet . ' Port=' . $port . ' IPs=' . count($ips), 0);
         $found = array();
 
         foreach ($ips as $ip) {
@@ -73,12 +76,13 @@ class SLXDConfigurator extends IPSModule
                     'Channels' => $channels,
                     'Family' => $family
                 );
+                $this->SendDebug('SLXD CFG', 'Gefunden: ' . $ip . ' ' . $model . ' CH=' . $channels, 0);
             }
         }
 
         $this->WriteAttributeString('Discovered', json_encode($this->BuildValues($found)));
         IPS_LogMessage('SLXD CFG', 'Scan beendet, gefunden: ' . count($found));
-        $this->SendDebug('SLXD CFG', 'Discovered=' . json_encode($found), 0);
+        $this->SendDebug('SLXD CFG', 'Scan beendet, gefunden: ' . count($found), 0);
     }
 
     public function AddManual()
@@ -201,22 +205,14 @@ class SLXDConfigurator extends IPSModule
 
     private function ProbeDevice($ip, $port)
     {
-        $timeout = 0.5;
-        $sock = @fsockopen($ip, $port, $errno, $errstr, $timeout);
-        if (!$sock) return array('ok' => false);
-
-        stream_set_timeout($sock, 0, 500000);
-
-        $deviceID = $this->SendCommandSync($sock, '< GET DEVICE_ID >', 'DEVICE_ID');
-        $model = $this->SendCommandSync($sock, '< GET MODEL >', 'MODEL');
-        $firmware = $this->SendCommandSync($sock, '< GET FW_VER >', 'FW_VER');
-
-        fclose($sock);
-
+        $model = $this->SendCommandOnce($ip, $port, '< GET MODEL >', 'MODEL');
         $family = $this->DetectFamily($model);
         if ($model === '' || $family === '') {
             return array('ok' => false);
         }
+
+        $deviceID = $this->SendCommandOnce($ip, $port, '< GET DEVICE_ID >', 'DEVICE_ID');
+        $firmware = $this->SendCommandOnce($ip, $port, '< GET FW_VER >', 'FW_VER');
 
         return array(
             'ok' => true,
@@ -227,8 +223,14 @@ class SLXDConfigurator extends IPSModule
         );
     }
 
-    private function SendCommandSync($sock, $cmd, $expect)
+    private function SendCommandOnce($ip, $port, $cmd, $expect)
     {
+        $timeout = 0.5;
+        $sock = @fsockopen($ip, $port, $errno, $errstr, $timeout);
+        if (!$sock) return '';
+
+        stream_set_timeout($sock, 0, 500000);
+
         @fwrite($sock, $cmd . "\r\n");
         usleep(50000);
 
@@ -240,6 +242,8 @@ class SLXDConfigurator extends IPSModule
             $response .= $chunk;
             if (strlen($response) > 4096) break;
         }
+
+        fclose($sock);
 
         if ($expect !== '') {
             return $this->ParseResponseFor($response, $expect);
