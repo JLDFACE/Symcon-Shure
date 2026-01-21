@@ -25,6 +25,8 @@ class SLXDChannel extends IPSModule
         $this->SetBuffer('PendingTSMap', '{}');
         $this->SetBuffer('DeviceID', '');
         $this->SetBuffer('Model', '');
+        $this->SetBuffer('Rssi1', '');
+        $this->SetBuffer('Rssi2', '');
     }
 
     public function ApplyChanges()
@@ -132,11 +134,9 @@ class SLXDChannel extends IPSModule
         $this->SendCommand("< GET " . $ch . " AUDIO_GAIN >", 'Gain');
         $this->SendCommand("< GET " . $ch . " FREQUENCY >", 'Frequency');
         $this->SendCommand("< GET " . $ch . " CHAN_NAME >", 'ChannelName');
-        $this->SendCommand("< GET " . $ch . " BATT_CHARGE >", 'Battery');
         $this->SendCommand("< GET " . $ch . " TX_BATT_BARS >", 'Battery');
         $this->SendCommand("< GET " . $ch . " TX_BATT_MINS >", 'BatteryMinutes');
-        $this->SendCommand("< GET " . $ch . " RF_LEVEL >", 'RFLevel');
-        $this->SendCommand("< GET " . $ch . " TX_RF_LEVEL >", 'RFLevel');
+        $this->SendCommand("< GET " . $ch . " RSSI >", 'RFLevel');
         $this->SendCommand("< GET " . $ch . " TX_MODEL >", 'TXModel');
 
         SetValueInteger($this->GetIDForIdent('LastOKTimestamp'), time());
@@ -249,6 +249,9 @@ class SLXDChannel extends IPSModule
                     $this->UpdateVariable('RFLevel', $val);
                 }
                 break;
+            case 'RSSI':
+                $this->UpdateRssiFromValue($value);
+                break;
             case 'TX_MODEL':
                 $val = $this->TrimBraces($value);
                 $this->UpdateVariableString('TXModel', $val);
@@ -317,6 +320,47 @@ class SLXDChannel extends IPSModule
             return (float)$value;
         }
         return ((int)$value) / 1000.0;
+    }
+
+    private function UpdateRssiFromValue($value)
+    {
+        $parts = preg_split('/\s+/', trim((string)$value));
+        if (count($parts) < 2) {
+            return;
+        }
+
+        $ant = (int)$parts[0];
+        $raw = $this->ParseNumericValue($parts[1]);
+        if ($raw === null) {
+            return;
+        }
+
+        if ($ant === 1) {
+            $this->SetBuffer('Rssi1', (string)$raw);
+        } elseif ($ant === 2) {
+            $this->SetBuffer('Rssi2', (string)$raw);
+        }
+
+        $rssi1 = $this->GetBufferedIntOrNull('Rssi1');
+        $rssi2 = $this->GetBufferedIntOrNull('Rssi2');
+        if ($rssi1 === null && $rssi2 === null) {
+            return;
+        }
+
+        $bestRaw = ($rssi1 === null) ? $rssi2 : (($rssi2 === null) ? $rssi1 : max($rssi1, $rssi2));
+        $this->UpdateVariable('RFLevel', $this->RssiRawToDbm($bestRaw));
+    }
+
+    private function GetBufferedIntOrNull($name)
+    {
+        $raw = (string)$this->GetBuffer($name);
+        if ($raw === '') return null;
+        return (int)$raw;
+    }
+
+    private function RssiRawToDbm($raw)
+    {
+        return (int)$raw - 120;
     }
 
     private function BatteryBarsToPercent($bars)
