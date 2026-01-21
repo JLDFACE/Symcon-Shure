@@ -325,6 +325,14 @@ class SLXDChannel extends IPSModule
     private function UpdateRssiFromValue($value)
     {
         $parts = preg_split('/\s+/', trim((string)$value));
+        if (count($parts) == 1) {
+            $raw = $this->ParseNumericValue($parts[0]);
+            if ($raw === null) {
+                return;
+            }
+            $this->UpdateVariable('RFLevel', $this->RssiRawToDbm($raw));
+            return;
+        }
         if (count($parts) < 2) {
             return;
         }
@@ -339,6 +347,9 @@ class SLXDChannel extends IPSModule
             $this->SetBuffer('Rssi1', (string)$raw);
         } elseif ($ant === 2) {
             $this->SetBuffer('Rssi2', (string)$raw);
+        } else {
+            $this->UpdateVariable('RFLevel', $this->RssiRawToDbm($raw));
+            return;
         }
 
         $rssi1 = $this->GetBufferedIntOrNull('Rssi1');
