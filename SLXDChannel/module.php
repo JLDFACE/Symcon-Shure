@@ -651,6 +651,8 @@ class SLXDChannel extends IPSModule
                     IPS_ApplyChanges($configureID);
                 });
             }
+
+            $this->ConsolidateSockets($host, $port, $parentID);
         }
     }
 
@@ -686,9 +688,6 @@ class SLXDChannel extends IPSModule
         if (strtoupper($inst['ModuleInfo']['ModuleID']) !== '{3CFF0FD9-E306-41DB-9B5A-9D06D38576C3}') {
             return;
         }
-        if (!$this->ParentNeedsConfig($parentID)) {
-            return;
-        }
 
         $children = $this->GetChildrenByConnection($parentID);
         if (count($children) > 0) {
@@ -696,6 +695,37 @@ class SLXDChannel extends IPSModule
         }
 
         @IPS_DeleteInstance($parentID);
+    }
+
+    private function ConsolidateSockets($host, $port, $currentParentID)
+    {
+        $ids = $this->FindSocketsByHostPort($host, $port);
+        if (count($ids) <= 1) {
+            return;
+        }
+
+        sort($ids, SORT_NUMERIC);
+        $primaryID = $ids[0];
+
+        if ($currentParentID > 0 && $currentParentID !== $primaryID && function_exists('IPS_ConnectInstance')) {
+            $oldParentID = $currentParentID;
+            @IPS_ConnectInstance($this->InstanceID, $primaryID);
+            $this->CleanupOrphanedParent($oldParentID);
+        }
+    }
+
+    private function FindSocketsByHostPort($host, $port)
+    {
+        $ids = IPS_GetInstanceListByModuleID('{3CFF0FD9-E306-41DB-9B5A-9D06D38576C3}');
+        $result = array();
+        foreach ($ids as $id) {
+            $h = (string)IPS_GetProperty($id, 'Host');
+            $p = (int)IPS_GetProperty($id, 'Port');
+            if ($h === $host && $p === $port) {
+                $result[] = $id;
+            }
+        }
+        return $result;
     }
 
     private function GetChildrenByConnection($parentID)
