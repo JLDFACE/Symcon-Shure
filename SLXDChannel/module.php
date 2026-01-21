@@ -624,7 +624,7 @@ class SLXDChannel extends IPSModule
             $newID = IPS_CreateInstance('{3CFF0FD9-E306-41DB-9B5A-9D06D38576C3}');
             IPS_SetProperty($newID, 'Host', $host);
             IPS_SetProperty($newID, 'Port', $port);
-            IPS_SetProperty($newID, 'Open', true);
+            IPS_SetProperty($newID, 'Open', false);
             IPS_ApplyChanges($newID);
             @IPS_ConnectInstance($this->InstanceID, $newID);
             $parentID = $newID;
@@ -635,15 +635,24 @@ class SLXDChannel extends IPSModule
             IPS_SetProperty($configureID, 'Host', $host);
             IPS_SetProperty($configureID, 'Port', $port);
 
-            $this->SendDebug('SLXD', 'AutoOpen=true for ' . $host . ':' . $port, 0);
+            $canConnect = $this->TestTcp($host, $port, 300);
+            $this->SendDebug('SLXD', 'AutoOpen=' . ($canConnect ? 'true' : 'false') . ' for ' . $host . ':' . $port, 0);
 
-            $this->CallSilenced(function () use ($configureID) {
-                IPS_SetProperty($configureID, 'Open', true);
-            });
-
-            $this->CallSilenced(function () use ($configureID) {
-                IPS_ApplyChanges($configureID);
-            });
+            if ($canConnect) {
+                $this->CallSilenced(function () use ($configureID) {
+                    IPS_SetProperty($configureID, 'Open', true);
+                });
+                $this->CallSilenced(function () use ($configureID) {
+                    IPS_ApplyChanges($configureID);
+                });
+            } else {
+                $this->CallSilenced(function () use ($configureID) {
+                    IPS_SetProperty($configureID, 'Open', false);
+                });
+                $this->CallSilenced(function () use ($configureID) {
+                    IPS_ApplyChanges($configureID);
+                });
+            }
         }
     }
 
@@ -730,12 +739,16 @@ class SLXDChannel extends IPSModule
         $this->SetBuffer('LastReconnect', (string)$now);
         $this->SendDebug('SLXD', 'Reconnect attempt: ' . $reason, 0);
 
-        $this->CallSilenced(function () use ($parentID) {
-            IPS_SetProperty($parentID, 'Open', true);
-        });
-        $this->CallSilenced(function () use ($parentID) {
-            IPS_ApplyChanges($parentID);
-        });
+        $host = (string)$this->ReadPropertyString('Host');
+        $port = (int)$this->ReadPropertyInteger('Port');
+        if ($this->TestTcp($host, $port, 300)) {
+            $this->CallSilenced(function () use ($parentID) {
+                IPS_SetProperty($parentID, 'Open', true);
+            });
+            $this->CallSilenced(function () use ($parentID) {
+                IPS_ApplyChanges($parentID);
+            });
+        }
     }
 
     private function TestTcp($host, $port, $timeout)
