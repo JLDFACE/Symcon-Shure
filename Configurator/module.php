@@ -207,9 +207,9 @@ class SLXDConfigurator extends IPSModule
 
         stream_set_timeout($sock, 0, 500000);
 
-        $deviceID = $this->SendCommandSync($sock, '< GET DEVICE_ID >');
-        $model = $this->SendCommandSync($sock, '< GET MODEL >');
-        $firmware = $this->SendCommandSync($sock, '< GET FW_VER >');
+        $deviceID = $this->SendCommandSync($sock, '< GET DEVICE_ID >', 'DEVICE_ID');
+        $model = $this->SendCommandSync($sock, '< GET MODEL >', 'MODEL');
+        $firmware = $this->SendCommandSync($sock, '< GET FW_VER >', 'FW_VER');
 
         fclose($sock);
 
@@ -227,7 +227,7 @@ class SLXDConfigurator extends IPSModule
         );
     }
 
-    private function SendCommandSync($sock, $cmd)
+    private function SendCommandSync($sock, $cmd, $expect)
     {
         @fwrite($sock, $cmd . "\r\n");
         usleep(50000);
@@ -241,6 +241,9 @@ class SLXDConfigurator extends IPSModule
             if (strlen($response) > 4096) break;
         }
 
+        if ($expect !== '') {
+            return $this->ParseResponseFor($response, $expect);
+        }
         return $this->ParseResponse($response);
     }
 
@@ -256,6 +259,32 @@ class SLXDConfigurator extends IPSModule
             $parts = preg_split('/\s+/', $payload, 2);
             if (count($parts) == 0) continue;
             if (strtoupper($parts[0]) === 'ERR') continue;
+            if (count($parts) >= 2) return trim($parts[1]);
+            return '';
+        }
+
+        return '';
+    }
+
+    private function ParseResponseFor($raw, $expect)
+    {
+        $expect = strtoupper(trim((string)$expect));
+        if ($expect === '') {
+            return $this->ParseResponse($raw);
+        }
+
+        if (!preg_match_all('/<\s*REP\s+(.+?)\s*>/i', $raw, $matches)) {
+            return '';
+        }
+
+        foreach ($matches[1] as $payload) {
+            $payload = trim($payload);
+            if ($payload === '') continue;
+            $parts = preg_split('/\s+/', $payload, 2);
+            if (count($parts) == 0) continue;
+            $key = strtoupper($parts[0]);
+            if ($key === 'ERR') continue;
+            if ($key !== $expect) continue;
             if (count($parts) >= 2) return trim($parts[1]);
             return '';
         }
