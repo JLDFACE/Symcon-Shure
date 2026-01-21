@@ -57,8 +57,8 @@ class SLXDChannel extends IPSModule
         $this->RegisterVariableString('ChannelName', 'Channel Name', '', 21);
 
         $this->RegisterVariableInteger('Battery', 'Battery', 'SLXD.Battery', 30);
-
-        $this->RegisterVariableInteger('RFLevel', 'RF Level', 'SLXD.RFLevel', 31);
+        $this->RegisterVariableInteger('BatteryMinutes', 'Battery Minutes', 'SLXD.BatteryMinutes', 31);
+        $this->RegisterVariableInteger('RFLevel', 'RF Level', 'SLXD.RFLevel', 32);
 
         $this->RegisterVariableString('TXModel', 'TX Model', '', 40);
 
@@ -133,7 +133,10 @@ class SLXDChannel extends IPSModule
         $this->SendCommand("< GET " . $ch . " FREQUENCY >", 'Frequency');
         $this->SendCommand("< GET " . $ch . " CHAN_NAME >", 'ChannelName');
         $this->SendCommand("< GET " . $ch . " BATT_CHARGE >", 'Battery');
+        $this->SendCommand("< GET " . $ch . " TX_BATT_BARS >", 'Battery');
+        $this->SendCommand("< GET " . $ch . " TX_BATT_MINS >", 'BatteryMinutes');
         $this->SendCommand("< GET " . $ch . " RF_LEVEL >", 'RFLevel');
+        $this->SendCommand("< GET " . $ch . " TX_RF_LEVEL >", 'RFLevel');
         $this->SendCommand("< GET " . $ch . " TX_MODEL >", 'TXModel');
 
         SetValueInteger($this->GetIDForIdent('LastOKTimestamp'), time());
@@ -219,7 +222,28 @@ class SLXDChannel extends IPSModule
                     $this->UpdateVariable('Battery', $val);
                 }
                 break;
+            case 'TX_BATT_BARS':
+                $val = $this->ParseNumericValue($value);
+                if ($val !== null) {
+                    $percent = $this->BatteryBarsToPercent($val);
+                    if ($percent !== null) {
+                        $this->UpdateVariable('Battery', $percent);
+                    }
+                }
+                break;
+            case 'TX_BATT_MINS':
+                $val = $this->ParseNumericValue($value);
+                if ($val !== null && $val < 65534) {
+                    $this->UpdateVariable('BatteryMinutes', $val);
+                }
+                break;
             case 'RF_LEVEL':
+                $val = $this->ParseNumericValue($value);
+                if ($val !== null) {
+                    $this->UpdateVariable('RFLevel', $val);
+                }
+                break;
+            case 'TX_RF_LEVEL':
                 $val = $this->ParseNumericValue($value);
                 if ($val !== null) {
                     $this->UpdateVariable('RFLevel', $val);
@@ -293,6 +317,14 @@ class SLXDChannel extends IPSModule
             return (float)$value;
         }
         return ((int)$value) / 1000.0;
+    }
+
+    private function BatteryBarsToPercent($bars)
+    {
+        if ($bars < 0) return null;
+        if ($bars <= 5) return $bars * 20;
+        if ($bars <= 100) return $bars;
+        return null;
     }
 
     private function ParseNumericValue($value)
@@ -597,6 +629,12 @@ class SLXDChannel extends IPSModule
             IPS_CreateVariableProfile('SLXD.Battery', 1);
             IPS_SetVariableProfileValues('SLXD.Battery', 0, 100, 1);
             IPS_SetVariableProfileText('SLXD.Battery', '', ' %');
+        }
+
+        if (!IPS_VariableProfileExists('SLXD.BatteryMinutes')) {
+            IPS_CreateVariableProfile('SLXD.BatteryMinutes', 1);
+            IPS_SetVariableProfileValues('SLXD.BatteryMinutes', 0, 10000, 1);
+            IPS_SetVariableProfileText('SLXD.BatteryMinutes', '', ' min');
         }
 
         if (!IPS_VariableProfileExists('SLXD.RFLevel')) {
