@@ -608,26 +608,53 @@ class SLXDChannel extends IPSModule
 
         $inst = IPS_GetInstance($this->InstanceID);
         $parentID = isset($inst['ConnectionID']) ? (int)$inst['ConnectionID'] : 0;
-        $sharedID = $this->FindSharedClientSocket($host, $port);
-        if ($sharedID > 0 && $sharedID !== $parentID && function_exists('IPS_ConnectInstance')) {
-            @IPS_ConnectInstance($this->InstanceID, $sharedID);
-            $parentID = $sharedID;
+        $targetID = $this->FindSharedClientSocket($host, $port);
+
+        if ($targetID > 0 && $targetID !== $parentID && function_exists('IPS_ConnectInstance')) {
+            @IPS_ConnectInstance($this->InstanceID, $targetID);
+            $parentID = $targetID;
         }
 
-        if ($parentID > 0 && IPS_InstanceExists($parentID)) {
-            IPS_SetProperty($parentID, 'Host', $host);
-            IPS_SetProperty($parentID, 'Port', $port);
+        $configureID = 0;
+        if ($targetID > 0) {
+            $configureID = $parentID;
+        } elseif ($this->ParentMatchesHost($parentID, $host, $port)) {
+            $configureID = $parentID;
+        } elseif (function_exists('IPS_CreateInstance') && function_exists('IPS_ConnectInstance')) {
+            $newID = IPS_CreateInstance('{3CFF0FD9-E306-41DB-9B5A-9D06D38576C3}');
+            IPS_SetProperty($newID, 'Host', $host);
+            IPS_SetProperty($newID, 'Port', $port);
+            IPS_SetProperty($newID, 'Open', true);
+            IPS_ApplyChanges($newID);
+            @IPS_ConnectInstance($this->InstanceID, $newID);
+            $parentID = $newID;
+            $configureID = $newID;
+        }
+
+        if ($configureID > 0 && IPS_InstanceExists($configureID)) {
+            IPS_SetProperty($configureID, 'Host', $host);
+            IPS_SetProperty($configureID, 'Port', $port);
 
             $this->SendDebug('SLXD', 'AutoOpen=true for ' . $host . ':' . $port, 0);
 
-            $this->CallSilenced(function () use ($parentID) {
-                IPS_SetProperty($parentID, 'Open', true);
+            $this->CallSilenced(function () use ($configureID) {
+                IPS_SetProperty($configureID, 'Open', true);
             });
 
-            $this->CallSilenced(function () use ($parentID) {
-                IPS_ApplyChanges($parentID);
+            $this->CallSilenced(function () use ($configureID) {
+                IPS_ApplyChanges($configureID);
             });
         }
+    }
+
+    private function ParentMatchesHost($parentID, $host, $port)
+    {
+        if ($parentID <= 0 || !IPS_InstanceExists($parentID)) {
+            return false;
+        }
+        $h = (string)IPS_GetProperty($parentID, 'Host');
+        $p = (int)IPS_GetProperty($parentID, 'Port');
+        return ($h === $host && $p === $port);
     }
 
     private function FindSharedClientSocket($host, $port)
