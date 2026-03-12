@@ -198,7 +198,7 @@ class SLXDChannel extends IPSModule
 
     private function ProcessLine($line)
     {
-        if (!preg_match('/^<\s*REP\s+(\d+)\s+([A-Z_]+)\s*(.*?)\s*>$/i', $line, $m)) {
+        if (!preg_match('/^<\s*(?:REP|SAMPLE)\s+(\d+)\s+([A-Z_]+)\s*(.*?)\s*>$/i', $line, $m)) {
             return;
         }
 
