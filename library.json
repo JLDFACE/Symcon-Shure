@@ -5,5 +5,8 @@
   "url": "https://github.com/JLDFACE/Symcon-SHURE",
   "version": "1.0",
   "build": 1,
-  "date": 1737216000
+  "date": 1737216000,
+  "compatibility": {
+    "version": "7.0"
+  }
 }
