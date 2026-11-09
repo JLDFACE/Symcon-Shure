@@ -1,0 +1,14 @@
+{
+  "id": "{C9D2E7A4-8F51-4B6E-A3D7-2E5F9C4B8A16}",
+  "name": "SpeakerTracking",
+  "type": 3,
+  "vendor": "Shure",
+  "aliases": [
+    "Speaker Tracking",
+    "MXA920 Kamera-Tracking"
+  ],
+  "parentRequirements": [],
+  "childRequirements": [],
+  "implemented": [],
+  "prefix": "SHTRACK"
+}

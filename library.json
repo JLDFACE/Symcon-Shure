@@ -1,11 +1,11 @@
 {
   "id": "{A7B3C8D2-5E9F-4A1B-8C3D-9F2E6A4B7C81}",
   "author": "FACE GmbH",
-  "name": "Shure SLXD Control",
+  "name": "Shure Control",
   "url": "https://github.com/JLDFACE/Symcon-SHURE",
-  "version": "1.0",
-  "build": 1,
-  "date": 1737216000,
+  "version": "1.2",
+  "build": 3,
+  "date": 1784160000,
   "compatibility": {
     "version": "7.0"
   }

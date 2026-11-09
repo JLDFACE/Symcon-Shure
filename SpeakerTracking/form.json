@@ -1,0 +1,67 @@
+{
+  "elements": [
+    {
+      "type": "SelectInstance",
+      "name": "MicInstanceID",
+      "caption": "MXA920 Instanz (Mikrofon)"
+    },
+    {
+      "type": "SelectInstance",
+      "name": "CameraInstanceID",
+      "caption": "PTZ-Kamera Instanz (PureLink PTZ100)"
+    },
+    {
+      "type": "List",
+      "name": "AreaPresets",
+      "caption": "Coverage Area → Kamera-Preset",
+      "rowCount": 8,
+      "add": true,
+      "delete": true,
+      "columns": [
+        {
+          "caption": "Coverage Area",
+          "name": "Area",
+          "width": "150px",
+          "add": 1,
+          "edit": { "type": "NumberSpinner", "minimum": 1, "maximum": 8 }
+        },
+        {
+          "caption": "Kamera-Preset (0 = ignorieren)",
+          "name": "Preset",
+          "width": "220px",
+          "add": 0,
+          "edit": { "type": "NumberSpinner", "minimum": 0, "maximum": 255 }
+        }
+      ]
+    },
+    {
+      "type": "NumberSpinner",
+      "name": "DwellMs",
+      "caption": "Dwell-Time (ms) – Sprecher muss so lange stabil in einer Zone sein",
+      "minimum": 0,
+      "maximum": 30000
+    },
+    {
+      "type": "NumberSpinner",
+      "name": "HoldSeconds",
+      "caption": "Hold-Time (s) – Mindestabstand zwischen Kamera-Schwenks",
+      "minimum": 0,
+      "maximum": 300
+    },
+    {
+      "type": "NumberSpinner",
+      "name": "SilenceSeconds",
+      "caption": "Stille-Timeout (s) – danach Übersichts-Preset",
+      "minimum": 1,
+      "maximum": 3600
+    },
+    {
+      "type": "NumberSpinner",
+      "name": "OverviewPreset",
+      "caption": "Übersichts-Preset (0 = keins)",
+      "minimum": 0,
+      "maximum": 255
+    }
+  ],
+  "actions": []
+}

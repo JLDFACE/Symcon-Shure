@@ -1,16 +1,18 @@
-# Shure SLXD IP-Symcon Modul
+# Shure IP-Symcon Modul-Library
 
-IP-Symcon Modul zur Steuerung von **Shure SLXD Wireless Receiver** über TCP/IP (Port 2202).
+IP-Symcon Module zur Steuerung von **Shure Geräten** über TCP/IP (Shure Command Strings, Port 2202):
+
+- **SLXD Wireless Receiver** (SLXD4, SLXD4D, SLXD24D, SLXD44, QLX-D/ULX-D)
+- **MXA920 Ceiling Array Mikrofon**
 
 ## Überblick
 
-Dieses Modul ermöglicht die vollständige Steuerung und Überwachung von Shure SLXD Wireless Receivern über das Netzwerk. Es unterstützt alle gängigen SLXD-Modelle (SLXD4, SLXD4D, SLXD24D, SLXD44) und bietet eine nahtlose Integration in IP-Symcon.
+Diese Library ermöglicht die vollständige Steuerung und Überwachung von Shure Geräten über das Netzwerk und bietet eine nahtlose Integration in IP-Symcon.
 
 **Hauptmerkmale:**
 - Automatische Geräteerkennung per IP-Scan (Configurator) mit Auto-Subnetz
-- Eine Instanz pro Channel (flexibel und übersichtlich)
-- Audio Mute, Gain, Frequency, Channel Name
-- Battery-Status, RF-Level, TX-Model
+- SLXD: Eine Instanz pro Channel (flexibel und übersichtlich)
+- MXA920: Device Mute, Automix Gain, Presets, LED-Steuerung, Auto-Coverage, Pegel-Metering
 - Push-Updates (REP-Messages) + Polling-Fallback
 - Pending-Logik (UI flackert nicht bei Sollwertänderungen)
 - Robuste Fehlerbehandlung und Diagnose-Variablen
@@ -21,11 +23,19 @@ Dieses Modul ermöglicht die vollständige Steuerung und Überwachung von Shure 
 Symcon-SHURE/
 ├── library.json
 ├── README.md
-├── Configurator/           (Discovery & Auto-Instanziierung)
+├── Configurator/           (Discovery & Auto-Instanziierung, alle Gerätetypen)
 │   ├── module.json
 │   ├── module.php
 │   └── form.json
-└── SLXDChannel/            (Device: 1 Channel pro Instanz)
+├── SLXDChannel/            (Device: 1 Channel pro Instanz)
+│   ├── module.json
+│   ├── module.php
+│   └── form.json
+├── MXA920/                 (Device: Ceiling Array Mikrofon)
+│   ├── module.json
+│   ├── module.php
+│   └── form.json
+└── SpeakerTracking/        (Logik: MXA920 → PTZ-Kamera Preset-Tracking)
     ├── module.json
     ├── module.php
     └── form.json
@@ -111,6 +121,105 @@ Symcon-SHURE/
 - `SLXD.Frequency`: Integer, Suffix " MHz"
 - `SLXD.Battery`: Integer, 0-100, Suffix " %"
 - `SLXD.RFLevel`: Integer, Suffix " dBm"
+
+---
+
+### 3. MXA920 (Ceiling Array Mikrofon)
+**Typ:** Device (Type 3)
+**GUID:** `{B4F7A2E9-3C61-4D8B-A5F2-7E9C4B1D6A38}`
+**Prefix:** `MXA920`
+
+**Funktionen:**
+- Device Mute (ON/OFF, wird auch bei Änderung am Gerät sofort gepusht)
+- Automix-Ausgangs-Gain (-110 bis +30 dB in 0,1-dB-Schritten, Kanal 09)
+- Presets laden (1-10)
+- Automatic Coverage ein/aus
+- LED-Steuerung: Helligkeit (0-5), Farbe muted/unmuted (17 Farben), Verhalten (An/Aus/Blinkt)
+- Identify (LED blinken lassen zum Auffinden des Geräts)
+- Pegel-Metering des Automix-Ausgangs (optional, per MeterRate-Property)
+- Push-Updates via REP-Messages + Polling-Fallback
+
+**Properties:**
+- `Host`: IP-Adresse des MXA920 (Shure Control IP)
+- `Port`: TCP Port (Standard: 2202)
+- `MeterRate`: Pegel-Metering in ms (0 = aus, 100-99999)
+- `PollSlow`: Polling-Intervall Normal (Standard: 30s)
+- `PollFast`: Polling-Intervall nach Änderung (Standard: 3s)
+- `FastAfterChangeSeconds`: Dauer Fast-Polling (Standard: 30s)
+- `TimeoutMs`: Kommando-Timeout (Standard: 1500ms)
+
+**Variablen:**
+- `Online` (bool): Verbindungsstatus
+- `LastError` (string), `LastOKTimestamp` (int): Diagnose
+- `Mute` (bool, ~Switch): Device Mute
+- `Gain` (float, MXA920.Gain): Automix-Ausgangs-Gain in dB
+- `Preset` (int, MXA920.Preset): Aktives Preset (0 = keins)
+- `AutoCoverage` (bool, ~Switch): Automatic Coverage
+- `Level` (int, MXA920.Level): Audio-Pegel Automix-Out in dBFS (bei aktivem Metering)
+- `LEDBrightness` (int): LED-Helligkeit 0-5
+- `LEDColorUnmuted` / `LEDColorMuted` (int, MXA920.LEDColor): LED-Farben
+- `LEDStateUnmuted` / `LEDStateMuted` (int, MXA920.LEDState): LED-Verhalten
+- `Flash` (bool): Identify-Blinken
+- `Model`, `Firmware`, `DeviceID` (string, Read-Only)
+
+**Actions:**
+- `PollNow()`: Sofortiger Status-Poll
+- `ReadDeviceID()`: Liest Device ID aus
+- `SetMute(bool)`, `SetGain(float)`, `SetPreset(int)`, `SetAutoCoverage(bool)`
+- `Identify(bool)`: LED-Blinken ein/aus
+- `SetLEDBrightness(int)`, `SetLEDColorMuted(string)`, `SetLEDColorUnmuted(string)`,
+  `SetLEDStateMuted(string)`, `SetLEDStateUnmuted(string)` (Farben/Status als Shure-Namen, z.B. "RED", "FLASHING")
+
+**Kanal-Schema (Auto-Coverage ON):** 01-08 = Coverage Areas, 09 = Automix-Out, 10 = AEC-Referenz.
+Das Modul steuert Gain/Metering am Automix-Ausgang (09); Mute erfolgt als Device Mute.
+
+**Sprecher-Positionen (Speaker Tracking):** Über die Property `TalkerPositionRate` (ms, 0 = aus,
+Empfehlung 300) liefert das Gerät `SAMPLE TALKER_POSITIONS`-Telegramme. Das Modul stellt daraus bereit:
+- `TalkerCount` (int): Anzahl aktiver Sprecher im Reporting-Intervall
+- `TalkerArea` (int, MXA920.CoverageArea): Coverage Area (1-8) des ersten Sprechers —
+  wird bei **jedem** Report geschrieben (auch unverändert), damit nachgelagerte Logik per
+  VM_UPDATE jeden Report als "es wird gesprochen"-Heartbeat erhält
+- `TalkerX/Y/Z` (int, cm relativ zur Gerätemitte)
+- `TalkerPositions` (string): JSON-Array aller Sprecher `[{"lobe":n,"area":n,"x":n,"y":n,"z":n},...]`
+
+Wichtig: Bei Stille sendet das Gerät keine Reports — Stille erkennt man am Alter des letzten Updates.
+
+---
+
+### 4. SpeakerTracking (MXA920 → PTZ-Kamera)
+**Typ:** Logik (Type 3)
+**GUID:** `{C9D2E7A4-8F51-4B6E-A3D7-2E5F9C4B8A16}`
+**Prefix:** `SHTRACK`
+
+Koppelt ein MXA920 mit einer PTZ-Kamera (PureLink PTZ100): Spricht jemand in einer Coverage Area,
+fährt die Kamera das zugeordnete Preset an. Preset-basiertes Zonen-Tracking — ruhiges Bild statt
+kontinuierlichem Nachführen.
+
+**Funktionsweise:**
+1. Lauscht per MessageSink (VM_UPDATE) auf `TalkerArea` der MXA920-Instanz
+2. **Dwell-Time**: Sprecher muss die eingestellte Zeit stabil in derselben Area sein
+3. **Hold-Time**: Mindestabstand zwischen zwei Kamera-Schwenks (verhindert Ping-Pong)
+4. **Stille-Timeout**: Nach n Sekunden ohne Sprecher-Report → Übersichts-Preset
+
+**Properties:**
+- `MicInstanceID`: MXA920-Instanz (dort muss `TalkerPositionRate` > 0 sein, z.B. 300 ms!)
+- `CameraInstanceID`: PTZ100-Instanz
+- `AreaPresets`: Mapping-Tabelle Coverage Area (1-8) → Kamera-Preset (Default: Area n → Preset n; Preset 0 = Area ignorieren)
+- `DwellMs`: Stabilitätszeit in ms (Standard: 1500)
+- `HoldSeconds`: Mindestabstand zwischen Schwenks (Standard: 5)
+- `SilenceSeconds`: Stille-Timeout (Standard: 15)
+- `OverviewPreset`: Übersichts-Preset bei Stille (0 = deaktiviert)
+
+**Variablen:**
+- `Active` (bool, schaltbar): Tracking ein/aus (z.B. für Präsentationsmodus)
+- `CurrentArea` (int): Aktuell verfolgte Zone (0 = Übersicht)
+- `CurrentPreset` (int): Zuletzt geladenes Kamera-Preset
+
+**Einrichtung:**
+1. Coverage Areas im Shure Designer definieren (= die Zonen)
+2. In der MXA920-Instanz `TalkerPositionRate` auf z.B. 300 ms stellen
+3. PTZ100-Presets pro Zone einrichten (Kamera ausrichten → `PLPTZ_PresetSave`) + Übersichts-Preset
+4. SpeakerTracking-Instanz anlegen, Mikrofon + Kamera auswählen, Mapping pflegen
 
 ---
 
@@ -322,12 +431,30 @@ Symcon-SHURE/
 - Shure SLXD4 (1 Channel)
 - Shure SLXD4D (2 Channels)
 - Shure SLXD24D / SLXD44 (4 Channels)
+- Shure MXA920-S (FW 6.7.0.213)
 
 **Hinweis:** Andere SLXD-Modelle sollten ebenfalls funktionieren, solange sie Port 2202 und Command Strings unterstützen.
 
 ---
 
 ## Changelog
+
+### Version 1.2 (2026-07-16)
+- MXA920: Sprecher-Positionen (`TALKER_POSITION_RATE` / `SAMPLE TALKER_POSITIONS`)
+  - Neue Variablen TalkerCount, TalkerArea, TalkerX/Y/Z, TalkerPositions (JSON)
+  - Self-Heal der Reporting-Rate wie beim Metering
+- Neues Modul: SpeakerTracking (Coverage Area → PTZ100-Preset)
+  - Dwell-/Hold-/Stille-Logik gegen Kamera-Ping-Pong
+  - Übersichts-Preset bei Stille, Aktiv-Schalter
+
+### Version 1.1 (2026-07-16)
+- Library umbenannt in "Shure Control" (mehrere Gerätefamilien)
+- Neues Modul: MXA920 Ceiling Array Mikrofon
+  - Device Mute, Automix Gain, Presets, Auto-Coverage
+  - LED-Steuerung (Helligkeit, Farben, Verhalten), Identify
+  - Pegel-Metering via SAMPLE-Telegramme (MeterRate)
+  - Push-Updates (REP) + Polling-Fallback, Pending-Logik
+- Configurator erkennt jetzt auch MXA920 (Scan + manuelles Hinzufügen)
 
 ### Version 1.0 (2025-01-18)
 - Initiale Version

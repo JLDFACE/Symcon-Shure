@@ -153,6 +153,7 @@ class ShureConfigurator extends IPSModule
     private function BuildValues($foundDevices)
     {
         $channelModuleID = '{3F4A5B6C-7D8E-9F0A-1B2C-3D4E5F6A7B8C}';
+        $mxa920ModuleID = '{B4F7A2E9-3C61-4D8B-A5F2-7E9C4B1D6A38}';
         $values = array();
 
         foreach ($foundDevices as $row) {
@@ -170,6 +171,42 @@ class ShureConfigurator extends IPSModule
             $familyLabel = $family;
             if ($family === 'slxd') $familyLabel = 'SLX-D';
             if ($family === 'ulxd') $familyLabel = 'QLX-D/ULX-D';
+            if ($family === 'mxa920') $familyLabel = 'MXA920';
+
+            if ($family === 'mxa920') {
+                $existing = $this->FindInstanceByHost($mxa920ModuleID, $ip);
+
+                $rowOut = array(
+                    'IP' => $ip,
+                    'Model' => $model,
+                    'DeviceID' => $deviceID,
+                    'Firmware' => $firmware,
+                    'Channels' => '-',
+                    'Family' => $familyLabel,
+                    'instanceID' => ($existing > 0) ? $existing : 0
+                );
+
+                if ($existing == 0) {
+                    if ($deviceID !== '') {
+                        $name = $deviceID;
+                    } elseif ($model !== '') {
+                        $name = $model;
+                    } else {
+                        $name = $ip;
+                    }
+                    $rowOut['create'] = array(
+                        'moduleID' => $mxa920ModuleID,
+                        'name' => $name,
+                        'configuration' => array(
+                            'Host' => $ip,
+                            'Port' => $port
+                        )
+                    );
+                }
+
+                $values[] = $rowOut;
+                continue;
+            }
 
             for ($ch = 1; $ch <= $channels; $ch++) {
                 $existing = $this->FindInstanceByHostAndChannel($channelModuleID, $ip, $ch);
@@ -372,6 +409,9 @@ class ShureConfigurator extends IPSModule
         $m = strtoupper($this->TrimBraces((string)$model));
         if ($m === '') return '';
 
+        if (strpos($m, 'MXA920') !== false) {
+            return 'mxa920';
+        }
         if (strpos($m, 'SLXD') !== false || strpos($m, 'SLX') !== false) {
             return 'slxd';
         }
@@ -626,6 +666,18 @@ class ShureConfigurator extends IPSModule
             $host = (string)gethostbyname(gethostname());
         }
         return $this->IsUsableIPv4($host) ? $host : '';
+    }
+
+    private function FindInstanceByHost($moduleID, $host)
+    {
+        $ids = IPS_GetInstanceListByModuleID($moduleID);
+        foreach ($ids as $id) {
+            $h = (string)IPS_GetProperty($id, 'Host');
+            if ($h === $host) {
+                return $id;
+            }
+        }
+        return 0;
     }
 
     private function FindInstanceByHostAndChannel($moduleID, $host, $channel)

@@ -5,7 +5,8 @@
   "vendor": "Shure",
   "aliases": [
     "Shure Device Search",
-    "SLX-D/QLX-D Device Search"
+    "SLX-D/QLX-D Device Search",
+    "MXA920 Device Search"
   ],
   "parentRequirements": [],
   "childRequirements": [],

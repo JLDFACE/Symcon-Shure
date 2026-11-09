@@ -1,0 +1,18 @@
+{
+  "id": "{B4F7A2E9-3C61-4D8B-A5F2-7E9C4B1D6A38}",
+  "name": "MXA920",
+  "type": 3,
+  "vendor": "Shure",
+  "aliases": [
+    "Shure MXA920",
+    "MXA920 Ceiling Array"
+  ],
+  "parentRequirements": [
+    "{79827379-F36E-4ADA-8A95-5F8D1DC92FA9}"
+  ],
+  "childRequirements": [],
+  "implemented": [
+    "{018EF6B5-AB94-40C6-AA53-46943E824ACF}"
+  ],
+  "prefix": "MXA920"
+}

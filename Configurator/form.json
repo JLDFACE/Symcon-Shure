@@ -51,7 +51,7 @@
     {
       "type": "Configurator",
       "name": "DeviceList",
-      "caption": "Gefundene SLX-D/QLX-D Receiver",
+      "caption": "Gefundene Shure Geräte (SLX-D/QLX-D/MXA920)",
       "delete": true,
       "columns": [
         { "label": "IP", "name": "IP", "width": "120px" },
